@@ -17,7 +17,8 @@ curl -X POST -d "url=http://tester.local/" tester.demo.svc:5000
 
 istioctl proxy-status
 
-echo "apiVersion: networking.istio.io/v1
+cat <<EOF > workloadentry.yaml
+apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
 metadata:
   name: tester-svc
@@ -26,9 +27,11 @@ spec:
   address: 192.168.100.19
   labels:
     app: client
-    instance-id: debian-client" > workloadentry.yaml
+    instance-id: debian-client"
+EOF
 
-echo "apiVersion: networking.istio.io/v1
+cat <<EOF > virtualvmservice.yaml
+apiVersion: networking.istio.io/v1
 kind: ServiceEntry
 metadata:
   name: tester-svc
@@ -44,7 +47,8 @@ spec:
   resolution: DNS
   workloadSelector:
     labels:
-      app: client" > virtualvmservice.yaml
+      app: client"
+EOF
 
 kubectl label namespace client istio-injection=enabled
 kubectl apply -f virtualvmservice.yaml -n client
