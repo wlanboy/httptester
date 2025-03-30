@@ -25,6 +25,35 @@ curl -X POST -d "url=http://tester.demo.svc:5000/" tester.local:5000
 
 istioctl proxy-status
 
+cat <<EOF > workloadgroup.yaml
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: istio
+spec:
+  values:
+    global:
+      meshID: mesh1
+      multiCluster:
+        clusterName: "cluster1"
+      network: "vm-network"
+EOF
+
+cat <<EOF > workloadgroup.yaml
+apiVersion: networking.istio.io/v1
+kind: WorkloadGroup
+metadata:
+  name: "client"
+  namespace: "client"
+spec:
+  metadata:
+    labels:
+      app: "client"
+  template:
+    serviceAccount: "clientserviceaccount"
+    network: "vm-network"
+EOF
+
 cat <<EOF > workloadentry.yaml
 apiVersion: networking.istio.io/v1
 kind: WorkloadEntry
@@ -58,12 +87,10 @@ spec:
       app: client"
 EOF
 
-kubectl label namespace client istio-injection=enabled
-kubectl apply -f virtualvmservice.yaml -n client
-kubectl describe serviceentry tester-svc -n client
-kubectl delete serviceentry tester-svc -n client
-
-
 kubectl apply -f workloadentry.yaml -n client
 kubectl describe workloadentry tester-svc -n client
 kubectl delete workloadentry tester-svc -n client
+
+kubectl apply -f virtualvmservice.yaml -n client
+kubectl describe serviceentry tester-svc -n client
+kubectl delete serviceentry tester-svc -n client
