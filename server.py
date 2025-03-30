@@ -1,5 +1,6 @@
 from flask import Flask, request, render_template_string
 import requests
+import html
 
 app = Flask(__name__)
 
@@ -22,6 +23,18 @@ HTML = """
         <textarea rows="10" cols="80">{{ response }}</textarea>
         <h2>Headers</h2>
         <textarea rows="10" cols="80">{{ headers }}</textarea>
+        <table border="1">
+            <tr>
+                <th>Key</th>
+                <th>Value</th>
+            </tr>
+            {% for key, value in headers.items() %}
+            <tr>
+                <td>{{ key }}</td>
+                <td>{{ value }}</td>
+            </tr>
+            {% endfor %}
+        </table>
     {% endif %}
 </body>
 </html>
