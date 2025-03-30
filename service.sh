@@ -7,6 +7,7 @@ kubectl set image deployment/tester 'wlanboy/http-tester:latest' -n demo
 kubectl describe pod tester -n demo
 
 kubectl label namespace demo istio-discovery=enabled
+kubectl label namespace client istio-discovery=enabled
 
 istioctl proxy-status
 
@@ -19,8 +20,7 @@ curl http.demo:5000
 curl tester.local
 curl helloworld.sample.svc:5000/hello
 curl -X POST -d "url=http://helloworld.sample.svc:5000/hello" tester.demo.svc:5000
-curl -X POST -d "url=http://tester.local/" tester.demo.svc:5000
-
+curl -X POST -d "url=http://tester.local:5000/" tester.demo.svc:5000
 
 istioctl proxy-status
 
