@@ -17,7 +17,7 @@ kubectl get svc istio-ingress -n istio-ingress
 
 curl tester.demo.svc:5000
 curl http.demo:5000
-curl tester.local
+curl tester.local:5000
 curl helloworld.sample.svc:5000/hello
 curl -X POST -d "url=http://helloworld.sample.svc:5000/hello" tester.demo.svc:5000
 curl -X POST -d "url=http://tester.local:5000/" tester.demo.svc:5000
