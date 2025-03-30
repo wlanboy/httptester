@@ -44,6 +44,26 @@ spec:
   labels:
     app: "[NAME]"
 ```
+- ServiceEntry
+```
+apiVersion: networking.istio.io/v1
+kind: ServiceEntry
+metadata:
+  name: tester-svc
+spec:
+  hosts:
+  - [MESH_DNS_HOST]
+  location: MESH_INTERNAL
+  ports:
+  - number: 5000
+    name: http
+    protocol: HTTP
+    targetPort: 5000
+  resolution: DNS
+  workloadSelector:
+    labels:
+      app: [VM_NAME]
+```
 
 ## vm configs
 - /etc/certs/root-cert.pem
