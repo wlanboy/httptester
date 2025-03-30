@@ -2,7 +2,7 @@ kubectl create namespace demo
 kubectl label namespace demo istio-injection=enabled
 kubectl create deployment tester --image=wlanboy/http-tester:latest -n demo
 kubectl expose deployment tester --type=ClusterIP --port=5000 -n demo
-kubectl set image deployment/tester 'wlanboy/http-tester:latest' -n demo
+kubectl set image deployment/tester http-tester='wlanboy/http-tester:latest' -n demo
 
 kubectl describe pod tester -n demo
 
