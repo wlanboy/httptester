@@ -35,3 +35,6 @@ kubectl set image deployment/tester 'wlanboy/http-tester:latest' -n demo
 ```
 curl -X POST -d "url=http://helloworld.sample.svc:5000/hello" tester.demo.svc:5000
 ```
+
+## documentation
+- https://github.com/wlanboy/httptester/blob/main/mesh.md
