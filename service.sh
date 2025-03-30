@@ -4,7 +4,7 @@ kubectl create deployment tester --image=wlanboy/http-tester:latest -n demo
 kubectl expose deployment tester --type=ClusterIP --port=5000 -n demo
 kubectl set image deployment/tester 'wlanboy/http-tester:latest' -n demo
 
-kubectl descripte pod tester -n demo
+kubectl describe pod tester -n demo
 
 kubectl label namespace demo istio-discovery=enabled
 
