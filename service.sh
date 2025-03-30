@@ -3,6 +3,11 @@ kubectl label namespace demo istio-injection=enabled
 kubectl create deployment tester --image=wlanboy/http-tester:latest -n demo
 kubectl expose deployment tester --type=ClusterIP --port=5000 -n demo
 kubectl set image deployment/tester 'wlanboy/http-tester:latest' -n demo
+
+kubectl descripte pod tester -n demo
+
+kubectl label namespace demo istio-discovery=enabled
+
 istioctl proxy-status
 
 kubectl get all -n demo
@@ -10,7 +15,9 @@ kubectl describe svc tester -n demo
 kubectl get svc istio-ingress -n istio-ingress
 
 curl tester.demo.svc:5000
-curl tester.local:5000
+curl http.demo:5000
+curl tester.local
+curl helloworld.sample.svc:5000/hello
 curl -X POST -d "url=http://helloworld.sample.svc:5000/hello" tester.demo.svc:5000
 curl -X POST -d "url=http://tester.local/" tester.demo.svc:5000
 
