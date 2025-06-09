@@ -1,0 +1,11 @@
+[
+  {
+    "serviceName": "serviceone",
+    "healthEndpointPath": "/actuator/health",
+    "infoEndpointPath": "/actuator/info",
+    "httpPort": 8080,
+    "securePort": 8443,
+    "hostName": "gmk.local",
+    "dataCenterInfoName": "AWS_EAST"
+  }
+]
