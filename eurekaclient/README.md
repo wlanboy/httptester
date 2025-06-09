@@ -19,13 +19,13 @@ pip install requests
 
 ## run simple client
 ```
-export EUREKA_SERVER_URL="http://gmk:8761/eureka/v2/apps/"
+export EUREKA_SERVER_URL="http://gmk:8761/eureka/apps/"
 python3 client.py
 ```
 
 ## run client with metrics
 ```
-export EUREKA_SERVER_URL="http://gmk:8761/eureka/v2/apps/" \
+export EUREKA_SERVER_URL="http://gmk:8761/eureka/apps/" \
 export METRICS_SERVER_HOST="192.168.1.100" \
 export METRICS_SERVER_PORT="8080" \
 python client_wm.py
