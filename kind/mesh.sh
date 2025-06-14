@@ -33,7 +33,7 @@ istioctl create-remote-secret \
 
 istioctl create-remote-secret \
     --context="kind-${KIND_CLUSTER_WEST}" \
-    --name="${KIND_CLUSTER_WEST}" --server "https://${control_plane_node_name_west}:6443" | \
+    --name="${KIND_CLUSTER_WEST}" --server "https://${control_plane_node_name_west}:7443" | \
     kubectl apply -f - --context="kind-${KIND_CLUSTER_EAST}" 
 
 echo "--- Primary-Primary Service Mesh Konfiguration ---"
