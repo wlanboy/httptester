@@ -30,10 +30,10 @@ nodes:
         value: east-control-plane
       - op: add
         path: /apiServer/certSANs/-
-        value: gmk
+        value: gmk.local
       - op: add
         path: /apiServer/certSANs/-
-        value: localhost
+        value: 127.0.0.1
 - role: worker
 EOF
 
@@ -63,10 +63,10 @@ nodes:
         value: west-control-plane
       - op: add
         path: /apiServer/certSANs/-
-        value: gmk
+        value: gmk.local
       - op: add
         path: /apiServer/certSANs/-
-        value: localhost
+        value: 127.0.0.1
 - role: worker
 EOF
 
