@@ -1,5 +1,10 @@
 # create local primary primary service mesh
 
+## sysctl fix
+```
+sh sysctlfix.sh
+```
+
 ## create two clusters with metallb using docker controlled cidrs
 ```
 sh clusters.sh
