@@ -1,1 +1,3 @@
 kind/istio
+kind/east-kind.conf
+kind/west-kind.conf
