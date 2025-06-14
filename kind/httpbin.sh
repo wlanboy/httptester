@@ -37,5 +37,6 @@ echo "wget -S --spider http://httpbin.test-west.svc.cluster.local:8000"
 echo "wget -S --spider http://httpbin.test-east.svc.cluster.local:8000"
 
 #kubectl logs busybox -c istio-proxy -n test --context kind-west
+#istioctl proxy-config all busybox -n test --context kind-west
 #istioctl analyze --context kind-west
 #istioctl analyze --context kind-east
