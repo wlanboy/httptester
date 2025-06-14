@@ -3,18 +3,18 @@
 ISTIO_SYSTEM_NAMESPACE="istio-system"
 MESH_ID=servicemesh
 MESH_NETWORK=servicenetwork
+ISTIO_DIR=./istio
 
 if [ -z "$1" ]; then
     echo "Verwendung: $0 <cluster_name>"
     exit 1
 fi
 
+export PATH=$PWD/$ISTIO_DIR/bin:$PATH
+
 CLUSTER_NAME="$1"
 KUBECTL_CONTEXT="kind-$CLUSTER_NAME"
 
-# --- Funktionen ---
-
-# Funktion zum Installieren von Istio mit Helm
 install_istio_helm() {
     echo "--- Installiere Istio Komponenten auf Cluster: $CLUSTER_NAME mit Helm ---"
 

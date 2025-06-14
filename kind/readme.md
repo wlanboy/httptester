@@ -7,6 +7,8 @@ sh clusters.sh
 
 ## install istio, istiod, istio ingress, istio gateway, istio eastwest gateway on each cluster
 ```
+sh istio-download.sh
+
 sh istio.sh east
 sh istio.sh west
 ```
