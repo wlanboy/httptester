@@ -20,6 +20,20 @@ nodes:
     nodeRegistration:
       kubeletExtraArgs:
         node-labels: "ingress-ready=true"
+  kubeadmConfigPatchesJSON6902:
+  - group: kubeadm.k8s.io
+    version: v1beta3
+    kind: ClusterConfiguration
+    patch: |
+      - op: add
+        path: /apiServer/certSANs/-
+        value: east-control-plane
+      - op: add
+        path: /apiServer/certSANs/-
+        value: gmk
+      - op: add
+        path: /apiServer/certSANs/-
+        value: localhost
 - role: worker
 EOF
 
@@ -39,6 +53,20 @@ nodes:
     nodeRegistration:
       kubeletExtraArgs:
         node-labels: "ingress-ready=true"
+  kubeadmConfigPatchesJSON6902:
+  - group: kubeadm.k8s.io
+    version: v1beta3
+    kind: ClusterConfiguration
+    patch: |
+      - op: add
+        path: /apiServer/certSANs/-
+        value: west-control-plane
+      - op: add
+        path: /apiServer/certSANs/-
+        value: gmk
+      - op: add
+        path: /apiServer/certSANs/-
+        value: localhost
 - role: worker
 EOF
 
