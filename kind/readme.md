@@ -3,6 +3,8 @@
 ## create two clusters with metallb using docker controlled cidrs
 ```
 sh clusters.sh
+
+sh metallb.sh
 ```
 
 ## install istio, istiod, istio ingress, istio gateway, istio eastwest gateway on each cluster
