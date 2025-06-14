@@ -8,36 +8,60 @@ METALLB_VERSION="0.15.2"
 METALLB_IP_RANGE_EAST="172.18.100.10-172.18.100.50" # für Cluster East
 METALLB_IP_RANGE_WEST="172.18.200.10-172.18.200.50" # für Cluster West
 
-# Funktion zum Erstellen eines Kind-Clusters
-create_kind_cluster() {
-    local cluster_name=$1
-    echo "--- Erstelle Kind Cluster: $cluster_name ---"
-    kind create cluster --name "$cluster_name"
+cat <<EOF >"./east-kind.conf"
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: ipv4
+  apiServerAddress: 0.0.0.0
+  apiServerPort: 6443
+  kubeProxyMode: "iptables"
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+- role: worker
+EOF
+
+cat <<EOF >"./west-kind.conf"
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: ipv4
+  apiServerAddress: 0.0.0.0
+  apiServerPort: 7443
+  kubeProxyMode: "iptables"
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+- role: worker
+EOF
+
+create_kind_clusters() {
+    echo "--- Erstelle Kind Clusters:  ---"
+
+    kind create cluster --name "${KIND_CLUSTER_EAST}" --config=./east-kind.conf
     if [ $? -ne 0 ]; then
-        echo "Fehler beim Erstellen von Cluster $cluster_name. Beende Skript."
+        echo "Fehler beim Erstellen von Cluster. Beende Skript."
         exit 1
     fi
-    echo "Cluster $cluster_name erfolgreich erstellt."
-}
 
-# Funktion zum Herunterladen und Extrahieren der Istio Release
-download_istio() {
-    echo "--- Lade Istio $ISTIO_VERSION Release herunter ---"
-
-    echo "Verwende Istio Version: $ISTIO_VERSION"
-    istio_release_url="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istio-${ISTIO_VERSION}-linux-amd64.tar.gz"
-    echo "Lade von: $istio_release_url"
-
-    mkdir -p "$ISTIO_DIR"
-    curl -L "$istio_release_url" | tar xz --strip-components=1 -C "$ISTIO_DIR"
+    kind create cluster --name "${KIND_CLUSTER_WEST}" --config=./west-kind.conf
     if [ $? -ne 0 ]; then
-        echo "Fehler beim Herunterladen oder Extrahieren von Istio. Beende Skript."
-        rm -rf "$ISTIO_DIR"
+        echo "Fehler beim Erstellen von Cluster. Beende Skript."
         exit 1
     fi
-    echo "Istio erfolgreich heruntergeladen und nach $ISTIO_DIR extrahiert."
-    export PATH=$PWD/$ISTIO_DIR/bin:$PATH # Füge istioctl zum PATH hinzu
-    echo "Istio-Binärdateien zum PATH hinzugefügt."
+
+    echo "Clusters erfolgreich erstellt."
 }
 
 # Funktion zur Installation von MetalLB auf einem Cluster
@@ -82,8 +106,7 @@ EOF
 echo "--- Starte Initiales Kind/Istio Setup ---"
 
 # Kind Cluster aufsetzen
-create_kind_cluster "$KIND_CLUSTER_EAST"
-create_kind_cluster "$KIND_CLUSTER_WEST"
+create_kind_clusters
 
 # MetalLB auf beiden Clustern installieren
 install_metallb "$KIND_CLUSTER_EAST" "$METALLB_IP_RANGE_EAST"
