@@ -6,7 +6,7 @@ CONTEXT_WEST=kind-west
 
 ISTIO_DIR=./istio
 HTTPBIN_YAML="${ISTIO_DIR}/samples/httpbin/httpbin.yaml"
-HTTPBIN_GATEWAY_YAML="${ISTIO_DIR}/samples/httpbin/httpbin.-gatewayyaml"
+HTTPBIN_GATEWAY_YAML="${ISTIO_DIR}/samples/httpbin/httpbin-gateway.yaml"
 
 kubectl create namespace "${NAMESPACE_EAST}" --context "${CONTEXT_EAST}"
 kubectl create namespace "${NAMESPACE_WEST}" --context "${CONTEXT_WEST}"
