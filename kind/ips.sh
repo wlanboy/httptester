@@ -10,8 +10,10 @@ KIND_CLUSTER_WEST="west"
 MESH_ID=servicemesh
 MESH_NETWORK=servicenetwork
 
-API_SERVER_EXTERNAL_HOSTNAME_EAST="east.gmk.local"
-API_SERVER_EXTERNAL_HOSTNAME_WEST="west.gmk.local"
+GATEWAY_EXTERNAL_HOSTNAME_EAST="east.gmk.local"
+GATEWAY_EXTERNAL_HOSTNAME_WEST="west.gmk.local"
+API_SERVER_EXTERNAL_HOSTNAME_EAST="eastapi.gmk.local"
+API_SERVER_EXTERNAL_HOSTNAME_WEST="westapi.gmk.local"
 API_SERVER_SERVICE_NAMESPACE="default"
 
 # External IPs der East-West Gateways und controle-plane ermitteln
@@ -32,5 +34,10 @@ echo "$control_plane_node_name_west"
 IP_WEST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "${control_plane_node_name_west}" 2>/dev/null)
 
 echo "EASTWEST GATEWAYS: $EAST_WEST_GATEWAY_IP_EAST | $EAST_WEST_GATEWAY_IP_WEST"
+echo "eastwest gateway lookups $(nslookup $GATEWAY_EXTERNAL_HOSTNAME_EAST | awk '/^Address: / { print $2 }') | $(nslookup $GATEWAY_EXTERNAL_HOSTNAME_WEST | awk '/^Address: / { print $2 }')"
+
 echo "INGRESS GATEWAYS: $INGRESS_GATEWAY_IP_EAST | $INGRESS_GATEWAY_IP_WEST"
+echo "ingress gateway lookups $(nslookup $API_SERVER_EXTERNAL_HOSTNAME_EAST | awk '/^Address: / { print $2 }') | $(nslookup $API_SERVER_EXTERNAL_HOSTNAME_WEST | awk '/^Address: / { print $2 }')"
+
 echo "NODES: $IP_EAST | $IP_WEST"
+
