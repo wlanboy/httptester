@@ -36,7 +36,7 @@ IP_WEST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{
 
 
 echo "Gateway für API Server EAST"
-cat <<EOF | kubectl apply -f -
+cat <<EOF | kubectl apply --context "kind-$KIND_CLUSTER_EAST" -f -
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
@@ -56,7 +56,7 @@ spec:
     - "${API_SERVER_EXTERNAL_HOSTNAME_EAST}"
 EOF
 
-cat <<EOF | kubectl apply -f -
+cat <<EOF | kubectl apply --context "kind-$KIND_CLUSTER_EAST" -f -
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
@@ -81,7 +81,7 @@ spec:
 EOF
 
 echo "Gateway für API Server WEST"
-cat <<EOF | kubectl apply -f -
+cat <<EOF | kubectl apply --context "kind-$KIND_CLUSTER_WEST" -f -
 apiVersion: networking.istio.io/v1beta1
 kind: Gateway
 metadata:
@@ -101,7 +101,7 @@ spec:
     - "${API_SERVER_EXTERNAL_HOSTNAME_WEST}"
 EOF
 
-cat <<EOF | kubectl apply -f -
+cat <<EOF | kubectl apply --context "kind-$KIND_CLUSTER_WEST" -f -
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
 metadata:
@@ -147,8 +147,8 @@ istioctl remote-clusters --context="kind-${KIND_CLUSTER_WEST}"
 echo "--- Primary-Primary Service Mesh Konfiguration Abgeschlossen ---"
 echo "Ihre Kind Cluster '$KIND_CLUSTER_EAST' und '$KIND_CLUSTER_WEST' sollten jetzt als Primary-Primary Service Mesh konfiguriert sein."
 echo "Verifizieren Sie die Konfiguration mit:"
-echo "istioctl remote-clusters --context=kind-'$KIND_CLUSTER_EAST'"
-echo "istioctl remote-clusters --context=kind-'$KIND_CLUSTER_WEST'"
+echo "istioctl remote-clusters --context=kind-$KIND_CLUSTER_EAST"
+echo "istioctl remote-clusters --context=kind-$KIND_CLUSTER_WEST"
 echo "Sync Probleme mit logfiles von istiod finden"
-echo "kubectl logs -n istio-system -l app=istiod --context=kind-'$KIND_CLUSTER_EAST'"
-echo "kubectl logs -n istio-system -l app=istiod --context=kind-'$KIND_CLUSTER_WEST'"
+echo "kubectl logs -n istio-system -l app=istiod --context=kind-$KIND_CLUSTER_EAST"
+echo "kubectl logs -n istio-system -l app=istiod --context=kind-$KIND_CLUSTER_WEST"
