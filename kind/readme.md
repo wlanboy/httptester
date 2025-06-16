@@ -22,6 +22,7 @@ sh istio.sh west
 
 ## create mesh
 ```
+sh ips.sh                 # check ips and dns records beforehand
 sh mesh.sh
 ```
 
