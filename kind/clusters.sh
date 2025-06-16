@@ -12,9 +12,6 @@ networking:
   apiServerAddress: 0.0.0.0
   apiServerPort: 6443
   kubeProxyMode: "iptables"
-  dns:
-  - "192.168.178.91"
-  - "192.168.178.1"
 nodes:
 - role: control-plane
   kubeadmConfigPatches:
@@ -48,9 +45,6 @@ networking:
   apiServerAddress: 0.0.0.0
   apiServerPort: 7443
   kubeProxyMode: "iptables"
-  dns:
-  - "192.168.178.91"
-  - "192.168.178.1"
 nodes:
 - role: control-plane
   kubeadmConfigPatches:
