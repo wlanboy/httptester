@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+./cleanup.sh
+
 start_time_total=$(date +%s)
 echo "Script started at $(date)"
 
