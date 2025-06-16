@@ -33,6 +33,9 @@ nodes:
         value: east.gmk.local
       - op: add
         path: /apiServer/certSANs/-
+        value: eastapi.gmk.local        
+      - op: add
+        path: /apiServer/certSANs/-
         value: 127.0.0.1
 - role: worker
 EOF
@@ -64,6 +67,9 @@ nodes:
       - op: add
         path: /apiServer/certSANs/-
         value: west.gmk.local
+      - op: add
+        path: /apiServer/certSANs/-
+        value: westapi.gmk.local            
       - op: add
         path: /apiServer/certSANs/-
         value: 127.0.0.1
