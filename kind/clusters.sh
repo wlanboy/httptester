@@ -12,6 +12,9 @@ networking:
   apiServerAddress: 0.0.0.0
   apiServerPort: 6443
   kubeProxyMode: "iptables"
+  dns:
+  - "192.168.178.91"
+  - "192.168.178.1"
 nodes:
 - role: control-plane
   kubeadmConfigPatches:
@@ -30,7 +33,7 @@ nodes:
         value: east-control-plane
       - op: add
         path: /apiServer/certSANs/-
-        value: gmk.local
+        value: east.gmk.local
       - op: add
         path: /apiServer/certSANs/-
         value: 127.0.0.1
@@ -45,6 +48,9 @@ networking:
   apiServerAddress: 0.0.0.0
   apiServerPort: 7443
   kubeProxyMode: "iptables"
+  dns:
+  - "192.168.178.91"
+  - "192.168.178.1"
 nodes:
 - role: control-plane
   kubeadmConfigPatches:
@@ -63,7 +69,7 @@ nodes:
         value: west-control-plane
       - op: add
         path: /apiServer/certSANs/-
-        value: gmk.local
+        value: west.gmk.local
       - op: add
         path: /apiServer/certSANs/-
         value: 127.0.0.1
