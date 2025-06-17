@@ -1,5 +1,14 @@
 # http tester for service mesh
+A simple web ui to run http get und nslookup request inside of the cluster.
+Perfect to check availability of services, dns entries and hostnames from a pod point of view.
+Used to test Istio Gateway, from Ingress to Eastwest service meshes.
 
+## subprojects
+* /eurekaclient - a server that reads a configlist of services and publishes them with their istio gateway vip to eureka
+* /accesslogs - a server which is replacing any service and just logs the accesslogs to have a tool to find users of a depricated api
+* /kind - a simple script based, step by step setup, for dual kind clusters with metallb to create a Istio based service mesh based on vips.
+
+And the build steps for the http tester itself:
 ## build
 ```
 docker build -t http-tester .
