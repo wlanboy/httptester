@@ -18,7 +18,7 @@ kubectl apply -n "${NAMESPACE_EAST}" -f "${HTTPBIN_YAML}" --context "${CONTEXT_E
 kubectl apply -n "${NAMESPACE_WEST}" -f "${HTTPBIN_YAML}" --context "${CONTEXT_WEST}"
 
 kubectl apply -n "${NAMESPACE_EAST}" -f "${HTTPBIN_GATEWAY_YAML}" --context "${CONTEXT_EAST}"
-kubectl apply -n "${NAMESPACE_WEST}" -f "${HTTPBIN_GATEWAY_YAML}" --context "${CONTEXT_WEST}"
+#kubectl apply -n "${NAMESPACE_WEST}" -f "${HTTPBIN_GATEWAY_YAML}" --context "${CONTEXT_WEST}"
 
 kubectl create namespace test --context "${CONTEXT_EAST}"
 kubectl label namespace test istio-injection=enabled --overwrite=true --context "${CONTEXT_EAST}"
