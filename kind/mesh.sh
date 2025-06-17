@@ -149,6 +149,8 @@ echo "Ihre Kind Cluster '$KIND_CLUSTER_EAST' und '$KIND_CLUSTER_WEST' sollten je
 echo "Verifizieren Sie die Konfiguration mit:"
 echo "istioctl remote-clusters --context=kind-$KIND_CLUSTER_EAST"
 echo "istioctl remote-clusters --context=kind-$KIND_CLUSTER_WEST"
+echo "istioctl proxy-status --context=kind-$KIND_CLUSTER_EAST"
+echo "istioctl proxy-status --context=kind-$KIND_CLUSTER_WEST"
 echo "Sync Probleme mit logfiles von istiod finden"
 echo "kubectl logs -n istio-system -l app=istiod --context=kind-$KIND_CLUSTER_EAST"
 echo "kubectl logs -n istio-system -l app=istiod --context=kind-$KIND_CLUSTER_WEST"
