@@ -5,6 +5,8 @@ KIND_CLUSTER_EAST="east"
 KIND_CLUSTER_WEST="west"
 METALLB_VERSION="0.15.2"
 
+# inspect docker bridge subnet
+# docker network inspect -f '{{.IPAM.Config}}' kind 
 METALLB_IP_RANGE_EAST="172.18.100.10-172.18.100.50" # für Cluster East
 METALLB_IP_RANGE_WEST="172.18.200.10-172.18.200.50" # für Cluster West
 
@@ -21,24 +23,25 @@ install_metallb() {
 
     # Erstelle ConfigMap für MetalLB
     cat <<EOF | kubectl --context "kind-$cluster_name" apply -f -
-apiVersion: metallb.io/v1beta1
-kind: IPAddressPool
-metadata:
-  name: example
-  namespace: metallb-system
-spec:
-  addresses:
-  - $ip_range
----
-apiVersion: metallb.io/v1beta1
-kind: L2Advertisement
-metadata:
-  name: example
-  namespace: metallb-system
-spec:
-  ipAddressPools:
-  - example
-EOF
+    apiVersion: metallb.io/v1beta1
+    kind: IPAddressPool
+    metadata:
+      name: example
+      namespace: metallb-system
+    spec:
+      addresses:
+      - $ip_range
+    ---
+    apiVersion: metallb.io/v1beta1
+    kind: L2Advertisement
+    metadata:
+      name: example
+      namespace: metallb-system
+    spec:
+      ipAddressPools:
+      - example
+    EOF
+
     if [ $? -ne 0 ]; then
         echo "Fehler beim Konfigurieren von MetalLB auf Cluster $cluster_name."
         exit 1
