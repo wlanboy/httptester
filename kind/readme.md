@@ -3,12 +3,15 @@ We create two kind based kubernetes clusters. We then install metallb on a docke
 
 ## sysctl fix
 We have to increase the fs.inotify.max_user* and net.ipv4.ip_forward sysctl settings.
+(https://github.com/wlanboy/httptester/raw/refs/heads/main/kind/sysctlfix.sh)
 ```
 sh sysctlfix.sh
 ```
 
 ## create two clusters with metallb using docker controlled cidrs
 Create two kind clusters "east" and "west". Install metallb with two subnets on the docker/podman kind bridge subnet.
+(https://github.com/wlanboy/httptester/raw/refs/heads/main/kind/clusters.sh)
+(https://github.com/wlanboy/httptester/raw/refs/heads/main/kind/metallb.sh)
 ```
 sh clusters.sh
 
@@ -16,6 +19,7 @@ sh metallb.sh
 ```
 
 ## install istio, istiod, istio ingress gateway, istio eastwest gateway on each cluster
+(https://github.com/wlanboy/httptester/raw/refs/heads/main/kind/istio.sh)
 ```
 sh istio-download.sh
 
@@ -26,6 +30,8 @@ sh istio.sh west
 ## create mesh
 First we check the vip and dns status of all gateways on all nodes.
 Afterwards we install the Istio service mesh and check its sync status.
+(https://github.com/wlanboy/httptester/raw/refs/heads/main/kind/ips.sh)
+(https://github.com/wlanboy/httptester/raw/refs/heads/main/kind/mesh.sh)
 ```
 sh ips.sh                 
 sh mesh.sh
