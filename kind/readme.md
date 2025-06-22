@@ -59,6 +59,35 @@ httpbin-686d6fc899-54tqc.test-west                    west        SYNCED (27m)  
 istio-ingressgateway-bc4786fff-px78j.istio-system     west        SYNCED (12m)     SYNCED (12m)     SYNCED (12m)     SYNCED (12m)     IGNORED     istiod-7d597df9d-mdpxv     1.26.1
 ```
 
+## istio-reader-service-account 
+```
+kubectl auth can-i --list --as=system:serviceaccount:istiosystem:istio-reader-service-account -n istio-system --context kind-east
+Resources                                       Non-Resource URLs                      Resource Names   Verbs
+selfsubjectreviews.authentication.k8s.io        []                                     []               [create]
+selfsubjectaccessreviews.authorization.k8s.io   []                                     []               [create]
+selfsubjectrulesreviews.authorization.k8s.io    []                                     []               [create]
+                                                [/.well-known/openid-configuration/]   []               [get]
+                                                [/.well-known/openid-configuration]    []               [get]
+                                                [/api/*]                               []               [get]
+                                                [/api]                                 []               [get]
+                                                [/apis/*]                              []               [get]
+                                                [/apis]                                []               [get]
+                                                [/healthz]                             []               [get]
+                                                [/healthz]                             []               [get]
+                                                [/livez]                               []               [get]
+                                                [/livez]                               []               [get]
+                                                [/openapi/*]                           []               [get]
+                                                [/openapi]                             []               [get]
+                                                [/openid/v1/jwks/]                     []               [get]
+                                                [/openid/v1/jwks]                      []               [get]
+                                                [/readyz]                              []               [get]
+                                                [/readyz]                              []               [get]
+                                                [/version/]                            []               [get]
+                                                [/version/]                            []               [get]
+                                                [/version]                             []               [get]
+                                                [/version]                             []               [get]
+```
+
 ## cleanup
 ```
 sh cleanup.sh
