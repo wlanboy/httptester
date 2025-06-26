@@ -95,7 +95,7 @@ create_kind_clusters() {
 }
 
 echo "print the kind bridge subnet:"
-docker network inspect kind -f '{{ range $i, $a := .IPAM.Config }}{{ println .Subnet }}{{ end }}' 
+#docker network inspect kind -f '{{ range $i, $a := .IPAM.Config }}{{ println .Subnet }}{{ end }}' 
 
 echo "--- Starte Initiales Kind Setup ---"
 
