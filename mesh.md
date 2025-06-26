@@ -1,7 +1,7 @@
 # service mesh
 
 ## components
-![](mesh.png)
+![](meshv2.png)
 
 ## istio configs
 - IstioOperator
