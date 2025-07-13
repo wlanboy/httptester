@@ -1,9 +1,46 @@
-from flask import Flask, request, render_template_string
+from flask import Flask, request, g, render_template_string
 import requests
 import socket
 import html
+import logging
 
 app = Flask(__name__)
+
+# access logs
+access_logger = logging.getLogger('http_access')
+access_logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(remote_addr)s - %(method)s %(path)s - %(status)s - %(response_length)s bytes - %(user_agent)s')
+# Configure StreamHandler to print logs to console (stdout)
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+access_logger.addHandler(console_handler)
+
+@app.before_request
+def log_request_info():
+    g.start_time = request.date
+    g.remote_addr = request.remote_addr
+    g.method = request.method
+    g.path = request.path
+    g.user_agent = request.headers.get('User-Agent', 'N/A')
+
+@app.after_request
+def log_response_info(response):
+    response_length = len(response.data) if response.data else 0
+    status_code = response.status_code
+
+    # Log the access
+    access_logger.info(
+        '',
+        extra={
+            'remote_addr': g.remote_addr,
+            'method': g.method,
+            'path': g.path,
+            'status': status_code,
+            'response_length': response_length,
+            'user_agent': g.user_agent
+        }
+    )
+    return response
 
 # HTML-Seite
 HTML = """
