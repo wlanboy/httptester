@@ -3,8 +3,18 @@ import requests
 import socket
 import html
 import logging
+import signal
+import sys
 
 app = Flask(__name__)
+
+# sig term
+def handle_sigterm(signal, frame):
+    print("SIGTERM received. Shutting down gracefully...")
+    print("Cleanup complete. Exiting.")
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, handle_sigterm)
 
 # access logs
 access_logger = logging.getLogger('http_access')
