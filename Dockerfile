@@ -7,6 +7,9 @@ WORKDIR /app
 # Copy the application files to the container
 COPY server.py /app/
 
+# Copy Init script
+COPY init.sh /usr/local/bin/start.sh
+
 # Install dependencies
 RUN pip install flask requests
 
@@ -14,4 +17,5 @@ RUN pip install flask requests
 EXPOSE 5000
 
 # Command to run the Flask app
-CMD ["python", "server.py"]
+#CMD ["python", "server.py"]
+CMD ["/usr/local/bin/init.sh"]
