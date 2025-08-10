@@ -8,14 +8,16 @@ WORKDIR /app
 COPY server.py /app/
 
 # Copy Init script
-COPY init.sh /usr/local/bin/start.sh
+#COPY init.sh /usr/local/bin/start.sh
 
 # Install dependencies
-RUN pip install flask requests
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Expose the port the app runs on
 EXPOSE 5000
 
 # Command to run the Flask app
 #CMD ["python", "server.py"]
-CMD ["/usr/local/bin/init.sh"]
+#CMD ["/usr/local/bin/init.sh"]
+CMD ["waitress-serve", "--listen=0.0.0.0:5000", "server:app"]
