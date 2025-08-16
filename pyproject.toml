@@ -1,0 +1,11 @@
+[project]
+name = "httptester"
+version = "0.1.0"
+description = "http tester tool for get and dns requests"
+readme = "readme.md"
+requires-python = ">=3.12"
+dependencies = [
+    "flask>=3.1.1",
+    "requests>=2.32.4",
+    "waitress>=3.0.2",
+]
