@@ -2,11 +2,11 @@
 
 ### get release
 - https://github.com/k3s-io/k3s/releases
-- e.g. https://github.com/k3s-io/k3s/releases/download/v1.32.3%2Bk3s1/k3s-airgap-images-amd64.tar.gz
+- e.g. https://github.com/k3s-io/k3s/releases/download/v1.33.4%2Bk3s1/k3s-airgap-images-amd64.tar.gz
 
 ## import images
 ```
-docker image load k3s-airgap-images-amd64.tar.zst
+docker image load k3s-airgap-images-amd64.tar.gz
 ```
 
 ## use private registry as pull through cache
@@ -29,7 +29,7 @@ sudo curl -L -o /var/lib/rancher/k3s/agent/images/k3s-airgap-images-amd64.tar.zs
 
 ## get install binary and shell script
 ```
-https://github.com/k3s-io/k3s/releases/download/v1.32.3%2Bk3s1/k3s
+https://github.com/k3s-io/k3s/releases/download/v1.33.4%2Bk3s1/k3s
 https://get.k3s.io/
 INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="--disable=traefik --node-ip=x.x.x.x" ./install.sh
 INSTALL_K3S_SKIP_DOWNLOAD=true K3S_URL=https://<SERVER_IP>:6443 K3S_TOKEN=<YOUR_TOKEN> ./install.sh
