@@ -16,6 +16,9 @@ def handle_sigterm(signal, frame):
 
 signal.signal(signal.SIGTERM, handle_sigterm)
 
+logging.basicConfig()
+logger = logging.getLogger('waitress')
+logger.setLevel(logging.INFO)
 # access logs
 access_logger = logging.getLogger('http_access')
 access_logger.setLevel(logging.INFO)
