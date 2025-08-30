@@ -20,4 +20,5 @@ EXPOSE 5000
 # Command to run the Flask app
 #CMD ["python", "server.py"]
 #CMD ["/usr/local/bin/init.sh"]
+#./.venv/bin/waitress-serve --listen=0.0.0.0:5000 server:app
 CMD ["waitress-serve", "--listen=0.0.0.0:5000", "server:app"]
