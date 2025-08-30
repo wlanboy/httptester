@@ -9,6 +9,24 @@ Used to test Istio Gateway, from Ingress to Eastwest service meshes.
 * /kind - a simple script based, step by step setup, for dual kind clusters with metallb to create a Istio based service mesh based on vips.
 
 And the build steps for the http tester itself:
+## get uv - makes python life easier
+```
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+## run
+```
+uv sync
+uv run main.py
+```
+
+### from scratch
+- cd httptester
+- uv sync
+- uv pip compile pyproject.toml -o requirements.txt
+- uv pip install -r requirements.txt
+- uv run main.pys
+
 ## build
 ```
 docker build -t http-tester .
