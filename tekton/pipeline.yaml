@@ -8,6 +8,9 @@ spec:
       type: string
     - name: image-url
       type: string
+    - name: dockerfile-path
+      type: string
+      default: Dockerfile
   workspaces:
     - name: shared-workspace
   tasks:
@@ -22,18 +25,21 @@ spec:
         - name: output
           workspace: shared-workspace
 
-    - name: build-and-push
+    - name: kaniko-build-and-push
       runAfter: [clone-repo]
-      taskRef:
-        name: kaniko
-        kind: ClusterTask
-      params:
-        - name: IMAGE
-          value: $(params.image-url)
-        - name: DOCKERFILE
-          value: /workspace/shared-workspace/Dockerfile
-        - name: CONTEXT
-          value: /workspace/shared-workspace/
+      stepTemplate:
+        image: gcr.io/kaniko-project/executor:latest
+        args:
+          - --dockerfile=/workspace/shared-workspace/$(params.dockerfile-path)
+          - --context=/workspace/shared-workspace/
+          - --destination=$(params.image-url)
+        volumeMounts:
+          - name: docker-config
+            mountPath: /kaniko/.docker
       workspaces:
         - name: source
           workspace: shared-workspace
+  volumes:
+    - name: docker-config
+      secret:
+        secretName: regcred

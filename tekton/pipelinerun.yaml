@@ -1,7 +1,7 @@
 apiVersion: tekton.dev/v1
 kind: PipelineRun
 metadata:
-  generateName: httptester-run-main
+  name: httptester-kaniko-publish
 spec:
   pipelineRef:
     name: httptester-kaniko-pipeline
@@ -10,6 +10,8 @@ spec:
       value: https://github.com/wlanboy/httptester.git
     - name: image-url
       value: docker.io/wlanboy/http-tester:latest
+    - name: dockerfile-path
+      value: Dockerfile
   workspaces:
     - name: shared-workspace
       volumeClaimTemplate:
@@ -21,13 +23,3 @@ spec:
             requests:
               storage: 1Gi
           storageClassName: local-path
-  podTemplate:
-    volumes:
-      - name: docker-config
-        secret:
-          secretName: regcred  # <--- Docker Hub Secret
-  taskRunTemplate:
-    podTemplate:
-      volumeMounts:
-        - name: docker-config
-          mountPath: /kaniko/.docker
