@@ -1,0 +1,39 @@
+apiVersion: tekton.dev/v1
+kind: Pipeline
+metadata:
+  name: httptester-kaniko-pipeline
+spec:
+  params:
+    - name: repo-url
+      type: string
+    - name: image-url
+      type: string
+  workspaces:
+    - name: shared-workspace
+  tasks:
+    - name: clone-repo
+      taskRef:
+        name: git-clone
+        kind: ClusterTask
+      params:
+        - name: url
+          value: $(params.repo-url)
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+
+    - name: build-and-push
+      runAfter: [clone-repo]
+      taskRef:
+        name: kaniko
+        kind: ClusterTask
+      params:
+        - name: IMAGE
+          value: $(params.image-url)
+        - name: DOCKERFILE
+          value: /workspace/shared-workspace/Dockerfile
+        - name: CONTEXT
+          value: /workspace/shared-workspace/
+      workspaces:
+        - name: source
+          workspace: shared-workspace
