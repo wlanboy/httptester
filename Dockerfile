@@ -6,6 +6,7 @@ WORKDIR /app
 
 # Copy the application files to the container
 COPY server.py /app/
+COPY templates/index.html templates/index.html
 
 # Copy Init script
 #COPY init.sh /usr/local/bin/start.sh
@@ -21,4 +22,5 @@ EXPOSE 5000
 #CMD ["python", "server.py"]
 #CMD ["/usr/local/bin/init.sh"]
 #./.venv/bin/waitress-serve --listen=0.0.0.0:5000 server:app
-CMD ["waitress-serve", "--listen=0.0.0.0:5000", "server:app"]
+#CMD ["waitress-serve", "--listen=0.0.0.0:5000", "server:app"]
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "5000"]
