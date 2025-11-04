@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GET Request Tester</title>
+</head>
+<body>
+    <h1>GET Request Tester</h1>
+    <p>Send GET Request from pod</p>
+    <form method="post" action="/">
+        <label for="url">URL:</label>
+        <input type="text" id="url" name="url" required>
+        <button type="submit">Senden</button>
+    </form>
+    <br/>
+    <p>or lookup a hostname from pod</p>
+    <br/>
+    <form method="post" action="/resolve">
+        <label for="hostname">hostname:</label>
+        <input type="text" id="hostname" name="hostname" required>
+        <button type="submit">Senden</button>
+    </form>
+    {% if response %}
+        <h2>Response</h2>
+        <textarea rows="10" cols="80">{{ response }}</textarea>
+        {% if headers %}
+            <h2>headers</h2>
+            <textarea rows="10" cols="80">{{ headers }}</textarea>
+            <table border="1">
+                <tr>
+                    <th>Key</th>
+                    <th>Value</th>
+                </tr>
+                {% for key, value in headers.items() %}
+                <tr>
+                    <td>{{ key }}</td>
+                    <td>{{ value }}</td>
+                </tr>
+                {% endfor %}
+            </table>
+        {% endif %}
+    {% endif %}
+</body>
+</html>
