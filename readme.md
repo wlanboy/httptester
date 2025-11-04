@@ -4,8 +4,10 @@ Perfect to check availability of services, dns entries and hostnames from a pod 
 Used to test Istio Gateway, from Ingress to Eastwest service meshes.
 
 ## subprojects
-* /eurekaclient - a server that reads a configlist of services and publishes them with their istio gateway vip to eureka
-* /accesslogs - a server which is replacing any service and just logs the accesslogs to have a tool to find users of a depricated api
+* /diagrams - ISTIO service mesh and gateway diagrams
+* /egress - short howto for ISTIO egress gateways
+* /istio-vm-service - short howto for ISTIO VM integration
+* /k3s-airgap - short howto for k3s airgap install
 * /kind - a simple script based, step by step setup, for dual kind clusters with metallb to create a Istio based service mesh based on vips.
 
 And the build steps for the http tester itself:
@@ -17,7 +19,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ## run
 ```
 uv sync
-uv run main.py
+.venv/bin/uvicorn server:app --reload --host 0.0.0.0 --port 5000
 ```
 
 ### from scratch
@@ -25,7 +27,7 @@ uv run main.py
 - uv sync
 - uv pip compile pyproject.toml -o requirements.txt
 - uv pip install -r requirements.txt
-- uv run main.pys
+- uv run server.py
 
 ## build
 ```
@@ -44,7 +46,7 @@ docker tag http-tester wlanboy/http-tester:latest
 docker push wlanboy/http-tester:latest
 ```
 
-## run
+## run as daemon
 ```
 docker run -d -p 5000:5000 wlanboy/http-tester
 ```
@@ -58,7 +60,6 @@ kubectl expose deployment tester --type=ClusterIP --port=5000 -n demo
 kubectl set image deployment/tester 'wlanboy/http-tester:latest' -n demo
 ```
 
-## curl
-```
-curl -X POST -d "url=http://helloworld.sample.svc:5000/hello" tester.demo.svc:5000
-```
+## test calls
+- use swagger ui: http://localhost:5000/docs
+![Swagger UI](screenshots/swagger.png)
