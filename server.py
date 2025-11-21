@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
 import requests
 import socket
 import html
@@ -54,4 +55,17 @@ async def resolve_hostname(request: Request, hostname: str = Form(...)):
         "request": request,
         "response": response_text,
         "headers": {}
+    })
+
+class BodyData(BaseModel):
+    message: str
+    value: int
+
+@app.post("/postbody")
+async def post_body(data: BodyData):
+    logging.info(f"Received body: {data}")
+    return JSONResponse(content={
+        "echo_message": data.message,
+        "echo_value": data.value,
+        "status": "ok"
     })
