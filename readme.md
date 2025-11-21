@@ -12,47 +12,47 @@ Used to test Istio Gateway, from Ingress to Eastwest service meshes.
 
 And the build steps for the http tester itself:
 ## get uv - makes python life easier
-```
+```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ## run
-```
+```bash
 uv sync
 .venv/bin/uvicorn server:app --reload --host 0.0.0.0 --port 5000
 ```
 
-### from scratch
-- cd httptester
-- uv sync
-- uv pip compile pyproject.toml -o requirements.txt
-- uv pip install -r requirements.txt
-- uv run server.py
+## from scratch
+```bash
+cd httptester
+uv sync
+uv pip compile pyproject.toml -o requirements.txt
+uv pip install -r requirements.txt
+uv run server.py
+```
+
+## run behave tests
+```bash
+.venv/bin/behave features/httptester.feature
+```
 
 ## build
-```
+```bash
 docker build -t http-tester .
 ```
 
 ## run local
-```
+```bash
 docker run -p 5000:5000 http-tester
 ```
 
-## publish
-```
-docker login
-docker tag http-tester wlanboy/http-tester:latest
-docker push wlanboy/http-tester:latest
-```
-
 ## run as daemon
-```
+```bash
 docker run -d -p 5000:5000 wlanboy/http-tester
 ```
 
 ## deploy
-```
+```bash
 kubectl create namespace demo
 kubectl label namespace demo istio-injection=enabled
 kubectl create deployment tester --image=wlanboy/http-tester:latest -n demo
