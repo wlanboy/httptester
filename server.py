@@ -7,7 +7,6 @@ import socket
 import html
 import logging
 import signal
-import sys
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
