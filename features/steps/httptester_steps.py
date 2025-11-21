@@ -1,6 +1,7 @@
 from behave import given, when, then
 from fastapi.testclient import TestClient
 from server import app
+import json
 
 client = TestClient(app)
 
@@ -27,3 +28,8 @@ def step_impl(context):
 @then('die Antwort enthält "{text}"')
 def step_impl(context, text):
     assert text in context.response.text
+
+@when('ich eine POST Anfrage auf "/postbody" mit body:')
+def step_impl(context):
+    body = json.loads(context.text)
+    context.response = context.client.post("/postbody", json=body)

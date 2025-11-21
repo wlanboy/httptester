@@ -28,3 +28,13 @@ Feature: Testen der FastAPI App
     When ich eine POST Anfrage auf "/resolve" mit hostname "unbekannt.local"
     Then erhalte ich den Statuscode 200
     And die Antwort enthält "Fehler"
+
+  Scenario: POST Anfrage mit JSON Body
+    Given die FastAPI App läuft
+    When ich eine POST Anfrage auf "/postbody" mit body:
+      """
+      {"message": "Hallo Welt", "value": 42}
+      """
+    Then erhalte ich den Statuscode 200
+    And die Antwort enthält "Hallo Welt"
+    And die Antwort enthält "42"
