@@ -28,7 +28,7 @@ cd httptester
 uv sync
 uv pip compile pyproject.toml -o requirements.txt
 uv pip install -r requirements.txt
-uv run server.py
+.venv/bin/uvicorn server:app --reload --host 0.0.0.0 --port 5000
 ```
 
 ## run behave tests
