@@ -1,0 +1,24 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: tester-vs
+  namespace: {{ .Values.namespace }}
+spec:
+  hosts:
+    - httptester.tp.lan
+  exportTo:
+  - "."
+  - istio-ingress
+  - istio-system
+  gateways:
+    - tester-gateway
+    - mesh
+  http:
+    - match:
+        - uri:
+            prefix: /
+      route:
+        - destination:
+            host: tester.{{ .Values.namespace }}.svc.cluster.local
+            port:
+              number: {{ .Values.service.port }}
