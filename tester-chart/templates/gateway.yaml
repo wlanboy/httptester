@@ -1,7 +1,7 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: tester-gateway
+  name: {{ .Values.deploymentName }}-gateway
   namespace: {{ .Values.namespace }}
 spec:
   selector:

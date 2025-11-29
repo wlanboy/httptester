@@ -1,12 +1,12 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: tester
+  name: {{ .Values.deploymentName }}
   namespace: {{ .Values.namespace }}
 spec:
   type: ClusterIP
   selector:
-    app: tester
+    app: {{ .Values.deploymentName }}
   ports:
     - port: {{ .Values.service.port }}
       targetPort: {{ .Values.service.port }}

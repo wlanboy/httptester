@@ -1,6 +1,9 @@
 namespace: tester
+deploymentName: tester
+
 image:
   repository: wlanboy/http-tester
   tag: latest
+
 service:
   port: 5000
