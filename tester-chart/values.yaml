@@ -1,4 +1,4 @@
-namespace: demo
+namespace: tester
 image:
   repository: wlanboy/http-tester
   tag: latest
