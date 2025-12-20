@@ -6,6 +6,7 @@ metadata:
 spec:
   hosts:
     - httptester.tp.lan
+    - httptester.gmk.lan
   exportTo:
   - "."
   - istio-ingress
