@@ -20,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 
 @app.get("/", response_class=HTMLResponse)
 async def get_home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(request, "index.html")
 
 @app.post("/", response_class=HTMLResponse)
 async def post_home(request: Request, url: str = Form(...)):
@@ -34,8 +34,7 @@ async def post_home(request: Request, url: str = Form(...)):
         response_text = f"Timeout: {e}"
     except Exception as e:
         response_text = f"Fehler: {e}"
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "response": response_text,
         "headers": response_headers
     })
@@ -50,8 +49,7 @@ async def resolve_hostname(request: Request, hostname: str = Form(...)):
         response_text = f"Fehler beim Auflösen des Hostnamens '{hostname}': {e}"
     except Exception as e:
         response_text = f"Ein unerwarteter Fehler ist aufgetreten: {e}"
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "response": response_text,
         "headers": {}
     })
