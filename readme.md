@@ -1,28 +1,34 @@
 # http tester for service mesh
+
 A simple web ui to run http get und nslookup request inside of the cluster.
 Perfect to check availability of services, dns entries and hostnames from a pod point of view.
 Used to test Istio Gateway, from Ingress to Eastwest service meshes.
 
 ## subprojects
+
 * /diagrams - ISTIO service mesh and gateway diagrams
 * /egress - short howto for ISTIO egress gateways
 * /istio-vm-service - short howto for ISTIO VM integration
 * /k3s-airgap - short howto for k3s airgap install
 * /kind - a simple script based, step by step setup, for dual kind clusters with metallb to create a Istio based service mesh based on vips.
 
-And the build steps for the http tester itself:
+And the build steps for the http tester itself.
+
 ## get uv - makes python life easier
+
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ## run
+
 ```bash
 uv sync
 .venv/bin/uvicorn server:app --reload --host 0.0.0.0 --port 5000
 ```
 
 ## from scratch
+
 ```bash
 cd httptester
 uv sync
@@ -32,26 +38,31 @@ uv pip install -r requirements.txt
 ```
 
 ## run behave tests
+
 ```bash
 .venv/bin/behave features/httptester.feature
 ```
 
 ## build
+
 ```bash
 docker build -t http-tester .
 ```
 
 ## run local
+
 ```bash
 docker run -p 5000:5000 http-tester
 ```
 
 ## run as daemon
+
 ```bash
 docker run -d -p 5000:5000 wlanboy/http-tester
 ```
 
 ## deploy
+
 ```bash
 kubectl create namespace demo
 kubectl label namespace demo istio-injection=enabled
@@ -61,5 +72,6 @@ kubectl set image deployment/tester 'wlanboy/http-tester:latest' -n demo
 ```
 
 ## test calls
-- use swagger ui: http://localhost:5000/docs
+
+Use swagger ui: http://localhost:5000/docs
 ![Swagger UI](screenshots/swagger.png)
