@@ -10,6 +10,7 @@ RUN useradd --no-create-home --uid 1000 appuser
 # Copy the application files to the container
 COPY --chown=appuser:appuser server.py /app/
 COPY --chown=appuser:appuser templates/index.html templates/index.html
+COPY --chown=appuser:appuser static/style.css static/style.css
 
 # Copy Init script
 #COPY init.sh /usr/local/bin/start.sh
