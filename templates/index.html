@@ -9,6 +9,22 @@
     <form method="post" action="/">
         <label for="url">URL:</label>
         <input type="text" id="url" name="url" required>
+        <label for="method">Methode:</label>
+        <select id="method" name="method">
+            <option value="GET" selected>GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="DELETE">DELETE</option>
+            <option value="HEAD">HEAD</option>
+            <option value="PATCH">PATCH</option>
+            <option value="OPTIONS">OPTIONS</option>
+        </select>
+        <label for="timeout">Timeout (s):</label>
+        <input type="number" id="timeout" name="timeout" value="5" min="0.1" max="30" step="0.5">
+        <br/>
+        <label for="headers">Header (ein "Key: Value" pro Zeile):</label><br/>
+        <textarea id="headers" name="headers" rows="3" cols="60"></textarea>
+        <br/>
         <button type="submit">Senden</button>
     </form>
     <br/>
