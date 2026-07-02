@@ -1,3 +1,4 @@
+{{- if .Values.ingress.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -12,5 +13,7 @@ spec:
         name: http
         protocol: HTTP
       hosts:
-        - httptester.tp.lan
-        - httptester.gmk.lan
+        {{- range .Values.ingress.hosts }}
+        - {{ . }}
+        {{- end }}
+{{- end }}

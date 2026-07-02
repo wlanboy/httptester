@@ -1,3 +1,4 @@
+{{- if .Values.ingress.enabled }}
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -5,14 +6,15 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   hosts:
-    - httptester.tp.lan
-    - httptester.gmk.lan
+    {{- range .Values.ingress.hosts }}
+    - {{ . }}
+    {{- end }}
   exportTo:
   - "."
   - istio-ingress
   - istio-system
   gateways:
-    - tester-gateway
+    - {{ .Values.deploymentName }}-gateway
     - mesh
   http:
     - match:
@@ -20,6 +22,7 @@ spec:
             prefix: /
       route:
         - destination:
-            host: tester.{{ .Values.namespace }}.svc.cluster.local
+            host: {{ .Values.deploymentName }}.{{ .Values.namespace }}.svc.cluster.local
             port:
               number: {{ .Values.service.port }}
+{{- end }}
