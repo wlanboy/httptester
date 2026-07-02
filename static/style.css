@@ -1,0 +1,153 @@
+:root {
+    --bg: #0f1115;
+    --panel: #161922;
+    --panel-border: #262b36;
+    --text: #e4e7ec;
+    --muted: #8b93a3;
+    --accent: #5b8cff;
+    --accent-hover: #7ba0ff;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 2.5rem 1.25rem;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+}
+
+main {
+    max-width: 720px;
+    margin: 0 auto;
+}
+
+h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 0.25rem;
+}
+
+h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 0.75rem;
+}
+
+.subtitle {
+    color: var(--muted);
+    margin: 0 0 2rem;
+}
+
+section {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+section > p:first-child {
+    margin-top: 0;
+    color: var(--muted);
+}
+
+label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin-bottom: 0.35rem;
+}
+
+.field {
+    margin-bottom: 1rem;
+}
+
+.field:last-of-type {
+    margin-bottom: 0;
+}
+
+.row {
+    display: flex;
+    gap: 1rem;
+}
+
+.row .field {
+    flex: 1;
+}
+
+input[type="text"],
+input[type="number"],
+select,
+textarea {
+    width: 100%;
+    padding: 0.6rem 0.7rem;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-family: inherit;
+}
+
+textarea {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    resize: vertical;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(91, 140, 255, 0.2);
+}
+
+button {
+    appearance: none;
+    border: none;
+    background: var(--accent);
+    color: #0b0d12;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 0.65rem 1.25rem;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 1rem;
+}
+
+button:hover {
+    background: var(--accent-hover);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    margin-top: 0.75rem;
+}
+
+th, td {
+    text-align: left;
+    padding: 0.5rem 0.6rem;
+    border-bottom: 1px solid var(--panel-border);
+}
+
+th {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+td:first-child {
+    color: var(--accent);
+    font-family: var(--mono);
+}
