@@ -11,12 +11,16 @@ import signal
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
+logging.basicConfig(level=logging.INFO)
+
 def handle_sigterm(signum, frame):
-    print("SIGTERM received. Shutting down gracefully...")
+    logging.info("SIGTERM received. Shutting down gracefully...")
 
 signal.signal(signal.SIGTERM, handle_sigterm)
 
-logging.basicConfig(level=logging.INFO)
+@app.get("/healthz")
+async def healthz():
+    return JSONResponse(content={"status": "ok"})
 
 @app.get("/", response_class=HTMLResponse)
 async def get_home(request: Request):
