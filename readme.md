@@ -108,8 +108,10 @@ mehrfach mit unterschiedlichem Release-Namen installieren – z. B. um mehrere
 Instanzen für einen Chain-Test aufzusetzen.
 
 ```bash
+kubectl create namespace tester
+kubectl label namespace tester istio-injection=enabled --overwrite
 helm upgrade --install tester ./tester-chart \
-  --namespace tester --create-namespace
+  --namespace tester
 ```
 
 ### Drei Instanzen in drei Namespaces (Chain-Setup)
@@ -120,17 +122,23 @@ eigenem `deploymentName`. Nur die erste Instanz braucht ein Gateway als
 Eingang von außen, die anderen beiden sind rein mesh-intern erreichbar:
 
 ```bash
+kubectl create namespace ns1
+kubectl label namespace ns1 istio-injection=enabled --overwrite
 helm upgrade --install tester1 ./tester-chart \
-  --namespace ns1 --create-namespace \
+  --namespace ns1 \
   --set deploymentName=tester1 --set namespace=ns1
 
+kubectl create namespace ns2
+kubectl label namespace ns2 istio-injection=enabled --overwrite
 helm upgrade --install tester2 ./tester-chart \
-  --namespace ns2 --create-namespace \
+  --namespace ns2 \
   --set deploymentName=tester2 --set namespace=ns2 \
   --set ingress.enabled=false
 
+kubectl create namespace ns3
+kubectl label namespace ns3 istio-injection=enabled --overwrite
 helm upgrade --install tester3 ./tester-chart \
-  --namespace ns3 --create-namespace \
+  --namespace ns3 \
   --set deploymentName=tester3 --set namespace=ns3 \
   --set ingress.enabled=false
 ```
