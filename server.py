@@ -103,3 +103,62 @@ async def post_body(data: BodyData):
         "echo_value": data.value,
         "status": "ok"
     })
+
+MAX_CHAIN_HOPS = 20
+CHAIN_TIMEOUT_DEFAULT = 5.0
+
+class ChainHop(BaseModel):
+    target: str
+    status_code: int | None = None
+    duration_ms: float | None = None
+    error: str | None = None
+
+class ChainRequest(BaseModel):
+    message: str | None = None
+    chain: list[str] = []
+    timeout: float = CHAIN_TIMEOUT_DEFAULT
+
+class ChainResponse(BaseModel):
+    message: str | None = None
+    final_status: int
+    path: list[ChainHop]
+
+@app.post("/chain", response_model=ChainResponse)
+async def chain(data: ChainRequest):
+    if not data.chain:
+        return ChainResponse(message=data.message, final_status=200, path=[])
+
+    if len(data.chain) > MAX_CHAIN_HOPS:
+        return ChainResponse(
+            message=data.message,
+            final_status=400,
+            path=[ChainHop(target=data.chain[0], error=f"Kette zu lang (> {MAX_CHAIN_HOPS} Hops), abgebrochen")],
+        )
+
+    next_url, *rest = data.chain
+    hop = ChainHop(target=next_url)
+    start = time.monotonic()
+    try:
+        res = await asyncio.to_thread(
+            requests.post,
+            f"{next_url.rstrip('/')}/chain",
+            json={"message": data.message, "chain": rest, "timeout": data.timeout},
+            timeout=data.timeout,
+        )
+        hop.duration_ms = round((time.monotonic() - start) * 1000, 1)
+        hop.status_code = res.status_code
+        try:
+            downstream = res.json()
+            path = [hop] + [ChainHop(**h) for h in downstream.get("path", [])]
+            final_status = downstream.get("final_status", res.status_code)
+        except ValueError:
+            hop.error = "Ungueltige Antwort (kein JSON)"
+            path = [hop]
+            final_status = 502
+    except requests.exceptions.RequestException as e:
+        hop.duration_ms = round((time.monotonic() - start) * 1000, 1)
+        hop.error = str(e)
+        path = [hop]
+        final_status = 502
+
+    return ChainResponse(message=data.message, final_status=final_status, path=path)
