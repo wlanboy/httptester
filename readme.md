@@ -4,16 +4,6 @@ A simple web ui to run http get und nslookup request inside of the cluster.
 Perfect to check availability of services, dns entries and hostnames from a pod point of view.
 Used to test Istio Gateway, from Ingress to Eastwest service meshes.
 
-## subprojects
-
-* /diagrams - ISTIO service mesh and gateway diagrams
-* /egress - short howto for ISTIO egress gateways
-* /istio-vm-service - short howto for ISTIO VM integration
-* /k3s-airgap - short howto for k3s airgap install
-* /kind - a simple script based, step by step setup, for dual kind clusters with metallb to create a Istio based service mesh based on vips.
-
-And the build steps for the http tester itself.
-
 ## get uv - makes python life easier
 
 ```bash
