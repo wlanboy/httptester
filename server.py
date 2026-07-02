@@ -6,17 +6,15 @@ import requests
 import socket
 import html
 import logging
-import signal
+
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
-logging.basicConfig(level=logging.INFO)
-
-def handle_sigterm(signum, frame):
-    logging.info("SIGTERM received. Shutting down gracefully...")
-
-signal.signal(signal.SIGTERM, handle_sigterm)
+@app.on_event("shutdown")
+async def handle_shutdown():
+    logging.info("Shutdown event received. Shutting down gracefully...")
 
 @app.get("/healthz")
 async def healthz():
