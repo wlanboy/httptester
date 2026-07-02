@@ -158,8 +158,21 @@ Browser/curl → httptester.tp.lan (Gateway ns1)
             tester3.ns3.svc.cluster.local   (Endstation, chain: [])
 ```
 
-Aufruf gegen `tester1` (z. B. per `kubectl port-forward` oder über das
-Gateway), entweder direkt als JSON:
+Aufruf gegen `tester1` über das Istio Gateway von außen:
+
+```bash
+curl -s -X POST http://httptester.gmk.lan/chain \
+  -H "Content-Type: application/json" \
+  -d '{
+        "message": "hallo aus der kette",
+        "chain": [
+          "http://tester2.ns2.svc.cluster.local:5000",
+          "http://tester3.ns3.svc.cluster.local:5000"
+        ]
+      }'
+```
+
+oder cluster-intern direkt gegen `tester1`:
 
 ```bash
 curl -s -X POST http://tester1.ns1.svc.cluster.local:5000/chain \
