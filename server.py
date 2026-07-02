@@ -14,8 +14,12 @@ import time
 logging.basicConfig(level=logging.INFO)
 
 DNS_TIMEOUT = 5.0
+MIN_REQUEST_TIMEOUT = 0.1
 MAX_REQUEST_TIMEOUT = 30.0
 ALLOWED_METHODS = {"GET", "POST", "PUT", "DELETE", "HEAD", "PATCH", "OPTIONS"}
+
+def clamp_timeout(value: float) -> float:
+    return max(MIN_REQUEST_TIMEOUT, min(value, MAX_REQUEST_TIMEOUT))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -56,7 +60,7 @@ async def post_home(
     response_headers = {}
     method = method.upper() if method.upper() in ALLOWED_METHODS else "GET"
     try:
-        timeout_value = min(float(timeout), MAX_REQUEST_TIMEOUT)
+        timeout_value = clamp_timeout(float(timeout))
     except ValueError:
         timeout_value = 5.0
     try:
@@ -137,14 +141,15 @@ async def run_chain(data: ChainRequest) -> ChainResponse:
         )
 
     next_url, *rest = data.chain
+    timeout_value = clamp_timeout(data.timeout)
     hop = ChainHop(target=next_url)
     start = time.monotonic()
     try:
         res = await asyncio.to_thread(
             requests.post,
             f"{next_url.rstrip('/')}/chain",
-            json={"message": data.message, "chain": rest, "timeout": data.timeout},
-            timeout=data.timeout,
+            json={"message": data.message, "chain": rest, "timeout": timeout_value},
+            timeout=timeout_value,
         )
         hop.duration_ms = round((time.monotonic() - start) * 1000, 1)
         hop.status_code = res.status_code
@@ -156,7 +161,7 @@ async def run_chain(data: ChainRequest) -> ChainResponse:
             hop.error = "Ungueltige Antwort (kein JSON)"
             path = [hop]
             final_status = 502
-    except requests.exceptions.RequestException as e:
+    except (requests.exceptions.RequestException, ValueError) as e:
         hop.duration_ms = round((time.monotonic() - start) * 1000, 1)
         hop.error = str(e)
         path = [hop]
@@ -177,7 +182,7 @@ async def chain_form(
 ):
     urls = [line.strip() for line in chain_urls.splitlines() if line.strip()]
     try:
-        timeout_value = min(float(timeout), MAX_REQUEST_TIMEOUT)
+        timeout_value = clamp_timeout(float(timeout))
     except ValueError:
         timeout_value = CHAIN_TIMEOUT_DEFAULT
 
