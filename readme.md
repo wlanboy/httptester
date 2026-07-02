@@ -60,6 +60,8 @@ uv run pyright .
 | POST   | `/resolve`   | Löst einen `hostname` per DNS auf                      |
 | POST   | `/postbody`  | Echoed einen JSON-Body zurück (`message`, `value`)     |
 | GET    | `/healthz`   | Liveness-/Readiness-Check, liefert `{"status": "ok"}`  |
+| POST   | `/chain`     | JSON-API: ruft `chain[0]` auf, reicht den Rest weiter und liefert `final_status` + `path` (Hops mit Status/Dauer/Fehler) |
+| POST   | `/chain-form`| HTML-Formular-Variante von `/chain` (Tab "Chain" in der UI) |
 | GET    | `/docs`      | Swagger UI                                             |
 
 ## build
@@ -98,28 +100,78 @@ kubectl set image deployment/tester 'wlanboy/http-tester:latest' -n demo
 
 ### Helm chart
 
-Das Chart in [`tester-chart`](tester-chart) deployt zusätzlich `Service`,
-Liveness-/Readiness-Probes auf `/healthz` sowie optional ein Istio
-`Gateway`/`VirtualService`:
+Das Chart in [`tester-chart`](tester-chart) deployt `Deployment` + `Service`
+mit Liveness-/Readiness-Probes auf `/healthz` sowie optional (per
+`ingress.enabled`) ein Istio `Gateway`/`VirtualService`. `deploymentName` und
+`namespace` sind vollständig parametrisiert, das Chart lässt sich also
+mehrfach mit unterschiedlichem Release-Namen installieren – z. B. um mehrere
+Instanzen für einen Chain-Test aufzusetzen.
 
 ```bash
 helm upgrade --install tester ./tester-chart \
   --namespace tester --create-namespace
 ```
 
-Wichtige Werte in [`tester-chart/values.yaml`](tester-chart/values.yaml):
+### Drei Instanzen in drei Namespaces (Chain-Setup)
 
-```yaml
-namespace: tester
-deploymentName: tester
+Um die Chain-Funktion (`/chain`) über mehrere Namespaces/Meshes hinweg zu
+testen, wird derselbe Chart dreimal installiert – einmal pro Namespace, mit
+eigenem `deploymentName`. Nur die erste Instanz braucht ein Gateway als
+Eingang von außen, die anderen beiden sind rein mesh-intern erreichbar:
 
-image:
-  repository: wlanboy/http-tester
-  tag: latest
+```bash
+helm upgrade --install tester1 ./tester-chart \
+  --namespace ns1 --create-namespace \
+  --set deploymentName=tester1 --set namespace=ns1
 
-service:
-  port: 5000
+helm upgrade --install tester2 ./tester-chart \
+  --namespace ns2 --create-namespace \
+  --set deploymentName=tester2 --set namespace=ns2 \
+  --set ingress.enabled=false
+
+helm upgrade --install tester3 ./tester-chart \
+  --namespace ns3 --create-namespace \
+  --set deploymentName=tester3 --set namespace=ns3 \
+  --set ingress.enabled=false
 ```
+
+Damit ergibt sich folgende Kette:
+
+```
+Browser/curl → httptester.tp.lan (Gateway ns1)
+                  │
+                  ▼
+            tester1.ns1.svc.cluster.local
+                  │  POST /chain { chain: [tester2, tester3] }
+                  ▼
+            tester2.ns2.svc.cluster.local
+                  │  POST /chain { chain: [tester3] }
+                  ▼
+            tester3.ns3.svc.cluster.local   (Endstation, chain: [])
+```
+
+Aufruf gegen `tester1` (z. B. per `kubectl port-forward` oder über das
+Gateway), entweder direkt als JSON:
+
+```bash
+curl -s -X POST http://tester1.ns1.svc.cluster.local:5000/chain \
+  -H "Content-Type: application/json" \
+  -d '{
+        "message": "hallo aus der kette",
+        "chain": [
+          "http://tester2.ns2.svc.cluster.local:5000",
+          "http://tester3.ns3.svc.cluster.local:5000"
+        ]
+      }'
+```
+
+oder über den Tab "Chain" in der Web-UI von `tester1` (eine URL pro Zeile:
+`http://tester2.ns2.svc.cluster.local:5000` und
+`http://tester3.ns3.svc.cluster.local:5000`). Die Antwort enthält
+`final_status` sowie den vollständigen `path` mit jedem Hop (Ziel, HTTP-Status,
+Dauer in ms, ggf. Fehlermeldung) – so lässt sich genau sehen, an welcher
+Namespace-Grenze eine AuthorizationPolicy, NetworkPolicy oder ein fehlendes
+`ServiceEntry` die Kette unterbricht.
 
 ## test calls
 
