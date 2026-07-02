@@ -33,3 +33,24 @@ def step_response_contains(context, text):
 def step_post_body(context):
     body = json.loads(context.text)
     context.response = context.client.post("/postbody", json=body)
+
+@when('ich eine erweiterte POST Anfrage auf "/" mit url "{url}", method "{method}", timeout "{timeout}" und header "{header}"')
+def step_post_root_advanced(context, url, method, timeout, header):
+    context.response = context.client.post("/", data={
+        "url": url, "method": method, "timeout": timeout, "headers": header
+    })
+
+@when('ich eine POST Anfrage auf "/chain" mit chain {chain_json}')
+def step_post_chain(context, chain_json):
+    chain = json.loads(chain_json)
+    context.response = context.client.post("/chain", json={"message": "hallo", "chain": chain})
+
+@then('der final_status ist {status:d}')
+def step_final_status(context, status):
+    body = context.response.json()
+    assert body["final_status"] == status, body
+
+@then('der path enthält {count:d} hops')
+def step_path_length(context, count):
+    body = context.response.json()
+    assert len(body["path"]) == count, body

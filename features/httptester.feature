@@ -25,7 +25,7 @@ Feature: Testen der FastAPI App
 
   Scenario: Hostname nicht auflösbar
     Given die FastAPI App läuft
-    When ich eine POST Anfrage auf "/resolve" mit hostname "unbekannt.local"
+    When ich eine POST Anfrage auf "/resolve" mit hostname "nonexistent.invalid"
     Then erhalte ich den Statuscode 200
     And die Antwort enthält "Fehler"
 
@@ -38,3 +38,29 @@ Feature: Testen der FastAPI App
     Then erhalte ich den Statuscode 200
     And die Antwort enthält "Hallo Welt"
     And die Antwort enthält "42"
+
+  Scenario: GET-Methode gegen /healthz einer anderen Instanz klappt
+    Given die FastAPI App läuft
+    When ich eine erweiterte POST Anfrage auf "/" mit url "http://127.0.0.1:5091/healthz", method "GET", timeout "3" und header "X-Test: abc"
+    Then erhalte ich den Statuscode 200
+    And die Antwort enthält "ok"
+
+  Scenario: Nicht erlaubte Methode gegen /healthz liefert 405 in der Antwort
+    Given die FastAPI App läuft
+    When ich eine erweiterte POST Anfrage auf "/" mit url "http://127.0.0.1:5091/healthz", method "PUT", timeout "3" und header "X-Test: abc"
+    Then erhalte ich den Statuscode 200
+    And die Antwort enthält "Method Not Allowed"
+
+  Scenario: Chain über zwei weitere Instanzen läuft komplett durch
+    Given die FastAPI App läuft
+    When ich eine POST Anfrage auf "/chain" mit chain ["http://127.0.0.1:5091", "http://127.0.0.1:5092"]
+    Then erhalte ich den Statuscode 200
+    And der final_status ist 200
+    And der path enthält 2 hops
+
+  Scenario: Chain bricht bei nicht erreichbarem Hop sauber ab
+    Given die FastAPI App läuft
+    When ich eine POST Anfrage auf "/chain" mit chain ["http://127.0.0.1:5999"]
+    Then erhalte ich den Statuscode 200
+    And der final_status ist 502
+    And der path enthält 1 hops
