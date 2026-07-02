@@ -13,3 +13,4 @@ ingress:
   hosts:
     - httptester.tp.lan
     - httptester.gmk.lan
+    - httptester.big.lan
