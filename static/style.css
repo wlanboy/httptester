@@ -151,3 +151,40 @@ td:first-child {
     color: var(--accent);
     font-family: var(--mono);
 }
+
+.tab-input {
+    display: none;
+}
+
+.tabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--panel-border);
+}
+
+.tab-label {
+    padding: 0.6rem 1rem;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 0.9rem;
+    font-weight: 600;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    user-select: none;
+}
+
+.tab-panel {
+    display: none;
+}
+
+#tab-request:checked ~ .tabs label[for="tab-request"],
+#tab-chain:checked ~ .tabs label[for="tab-chain"] {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+}
+
+#tab-request:checked ~ #panel-request,
+#tab-chain:checked ~ #panel-chain {
+    display: block;
+}
