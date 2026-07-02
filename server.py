@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 import requests
@@ -22,6 +23,7 @@ async def lifespan(app: FastAPI):
     logging.info("Shutdown event received. Shutting down gracefully...")
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
 @app.get("/healthz")
@@ -87,8 +89,8 @@ async def resolve_hostname(request: Request, hostname: str = Form(...)):
     except Exception as e:
         response_text = f"Ein unerwarteter Fehler ist aufgetreten: {e}"
     return templates.TemplateResponse(request, "index.html", {
-        "response": response_text,
-        "headers": {}
+        "dns_response": response_text,
+        "active_tab": "hostname",
     })
 
 class BodyData(BaseModel):
@@ -123,8 +125,7 @@ class ChainResponse(BaseModel):
     final_status: int
     path: list[ChainHop]
 
-@app.post("/chain", response_model=ChainResponse)
-async def chain(data: ChainRequest):
+async def run_chain(data: ChainRequest) -> ChainResponse:
     if not data.chain:
         return ChainResponse(message=data.message, final_status=200, path=[])
 
@@ -162,3 +163,26 @@ async def chain(data: ChainRequest):
         final_status = 502
 
     return ChainResponse(message=data.message, final_status=final_status, path=path)
+
+@app.post("/chain", response_model=ChainResponse)
+async def chain(data: ChainRequest):
+    return await run_chain(data)
+
+@app.post("/chain-form", response_class=HTMLResponse)
+async def chain_form(
+    request: Request,
+    message: str = Form(""),
+    chain_urls: str = Form(""),
+    timeout: str = Form("5"),
+):
+    urls = [line.strip() for line in chain_urls.splitlines() if line.strip()]
+    try:
+        timeout_value = min(float(timeout), MAX_REQUEST_TIMEOUT)
+    except ValueError:
+        timeout_value = CHAIN_TIMEOUT_DEFAULT
+
+    result = await run_chain(ChainRequest(message=message or None, chain=urls, timeout=timeout_value))
+    return templates.TemplateResponse(request, "index.html", {
+        "chain_result": result,
+        "active_tab": "chain",
+    })
