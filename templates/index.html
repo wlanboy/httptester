@@ -1,59 +1,156 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>GET Request Tester</title>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <h1>GET Request Tester</h1>
-    <p>Send GET Request from pod</p>
-    <form method="post" action="/">
-        <label for="url">URL:</label>
-        <input type="text" id="url" name="url" required>
-        <label for="method">Methode:</label>
-        <select id="method" name="method">
-            <option value="GET" selected>GET</option>
-            <option value="POST">POST</option>
-            <option value="PUT">PUT</option>
-            <option value="DELETE">DELETE</option>
-            <option value="HEAD">HEAD</option>
-            <option value="PATCH">PATCH</option>
-            <option value="OPTIONS">OPTIONS</option>
-        </select>
-        <label for="timeout">Timeout (s):</label>
-        <input type="number" id="timeout" name="timeout" value="5" min="0.1" max="30" step="0.5">
-        <br/>
-        <label for="headers">Header (ein "Key: Value" pro Zeile):</label><br/>
-        <textarea id="headers" name="headers" rows="3" cols="60"></textarea>
-        <br/>
-        <button type="submit">Senden</button>
-    </form>
-    <br/>
-    <p>or lookup a hostname from pod</p>
-    <br/>
-    <form method="post" action="/resolve">
-        <label for="hostname">hostname:</label>
-        <input type="text" id="hostname" name="hostname" required>
-        <button type="submit">Senden</button>
-    </form>
-    {% if response %}
-        <h2>Response</h2>
-        <textarea rows="10" cols="80">{{ response }}</textarea>
-        {% if headers %}
-            <h2>headers</h2>
-            <textarea rows="10" cols="80">{{ headers }}</textarea>
-            <table border="1">
-                <tr>
-                    <th>Key</th>
-                    <th>Value</th>
-                </tr>
-                {% for key, value in headers.items() %}
-                <tr>
-                    <td>{{ key }}</td>
-                    <td>{{ value }}</td>
-                </tr>
-                {% endfor %}
-            </table>
-        {% endif %}
-    {% endif %}
+    <main>
+        <h1>GET Request Tester</h1>
+        <p class="subtitle">HTTP-Requests, DNS-Auflösung und Chain-Aufrufe direkt aus dem Pod heraus testen.</p>
+
+        <input type="radio" name="tabs" id="tab-request" class="tab-input" {% if active_tab not in ("chain", "hostname") %}checked{% endif %}>
+        <input type="radio" name="tabs" id="tab-hostname" class="tab-input" {% if active_tab == "hostname" %}checked{% endif %}>
+        <input type="radio" name="tabs" id="tab-chain" class="tab-input" {% if active_tab == "chain" %}checked{% endif %}>
+
+        <nav class="tabs">
+            <label for="tab-request" class="tab-label">Request</label>
+            <label for="tab-hostname" class="tab-label">Hostname</label>
+            <label for="tab-chain" class="tab-label">Chain</label>
+        </nav>
+
+        <div class="tab-panel" id="panel-request">
+            <section>
+                <p>Request an eine URL senden</p>
+                <form method="post" action="/">
+                    <div class="field">
+                        <label for="url">URL</label>
+                        <input type="text" id="url" name="url" required>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label for="method">Methode</label>
+                            <select id="method" name="method">
+                                <option value="GET" selected>GET</option>
+                                <option value="POST">POST</option>
+                                <option value="PUT">PUT</option>
+                                <option value="DELETE">DELETE</option>
+                                <option value="HEAD">HEAD</option>
+                                <option value="PATCH">PATCH</option>
+                                <option value="OPTIONS">OPTIONS</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label for="timeout">Timeout (s)</label>
+                            <input type="number" id="timeout" name="timeout" value="5" min="0.1" max="30" step="0.1">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="headers">Header (ein "Key: Value" pro Zeile)</label>
+                        <textarea id="headers" name="headers" rows="3"></textarea>
+                    </div>
+                    <button type="submit">Senden</button>
+                </form>
+            </section>
+
+            {% if response %}
+            <section>
+                <h2>Response</h2>
+                <textarea rows="10" readonly>{{ response }}</textarea>
+            </section>
+            {% if headers %}
+            <section>
+                <h2>Headers</h2>
+                <textarea rows="6" readonly>{{ headers }}</textarea>
+                <table>
+                    <tr>
+                        <th>Key</th>
+                        <th>Value</th>
+                    </tr>
+                    {% for key, value in headers.items() %}
+                    <tr>
+                        <td>{{ key }}</td>
+                        <td>{{ value }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </section>
+            {% endif %}
+            {% endif %}
+        </div>
+
+        <div class="tab-panel" id="panel-hostname">
+            <section>
+                <p>Hostname auflösen</p>
+                <form method="post" action="/resolve">
+                    <div class="field">
+                        <label for="hostname">Hostname</label>
+                        <input type="text" id="hostname" name="hostname" required>
+                    </div>
+                    <button type="submit">Senden</button>
+                </form>
+            </section>
+
+            {% if dns_response %}
+            <section>
+                <h2>Response</h2>
+                <textarea rows="6" readonly>{{ dns_response }}</textarea>
+            </section>
+            {% endif %}
+        </div>
+
+        <div class="tab-panel" id="panel-chain">
+            <section>
+                <p>Kette von httptester-Instanzen der Reihe nach aufrufen (eine URL pro Zeile, letzter Eintrag = Endstation)</p>
+                <form method="post" action="/chain-form">
+                    <div class="field">
+                        <label for="chain_urls">Kette (eine URL pro Zeile)</label>
+                        <textarea id="chain_urls" name="chain_urls" rows="4" placeholder="http://httptester2:5000&#10;http://httptester3:5000" required></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="field">
+                            <label for="chain_message">Message (optional)</label>
+                            <input type="text" id="chain_message" name="message">
+                        </div>
+                        <div class="field">
+                            <label for="chain_timeout">Timeout pro Hop (s)</label>
+                            <input type="number" id="chain_timeout" name="timeout" value="5" min="0.1" max="30" step="0.1">
+                        </div>
+                    </div>
+                    <button type="submit">Kette starten</button>
+                </form>
+            </section>
+
+            {% if chain_result %}
+            <section>
+                <h2>Chain-Ergebnis</h2>
+                <p>
+                    Status: <strong>{{ chain_result.final_status }}</strong>
+                    {% if chain_result.message %}&middot; Message: {{ chain_result.message }}{% endif %}
+                </p>
+                <table>
+                    <tr>
+                        <th>#</th>
+                        <th>Ziel</th>
+                        <th>Status</th>
+                        <th>Dauer (ms)</th>
+                        <th>Fehler</th>
+                    </tr>
+                    {% for hop in chain_result.path %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ hop.target }}</td>
+                        <td>{{ hop.status_code if hop.status_code is not none else "-" }}</td>
+                        <td>{{ hop.duration_ms if hop.duration_ms is not none else "-" }}</td>
+                        <td>{{ hop.error if hop.error else "-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </section>
+            {% endif %}
+        </div>
+    </main>
 </body>
 </html>

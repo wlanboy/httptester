@@ -179,12 +179,14 @@ td:first-child {
 }
 
 #tab-request:checked ~ .tabs label[for="tab-request"],
+#tab-hostname:checked ~ .tabs label[for="tab-hostname"],
 #tab-chain:checked ~ .tabs label[for="tab-chain"] {
     color: var(--text);
     border-bottom-color: var(--accent);
 }
 
 #tab-request:checked ~ #panel-request,
+#tab-hostname:checked ~ #panel-hostname,
 #tab-chain:checked ~ #panel-chain {
     display: block;
 }
