@@ -56,7 +56,7 @@ uv run pyright .
 | Method | Path         | Beschreibung                                          |
 |--------|--------------|--------------------------------------------------------|
 | GET    | `/`          | HTML-Formular                                          |
-| POST   | `/`          | Führt einen GET-Request gegen die angegebene `url` aus |
+| POST   | `/`          | Request gegen `url` (Methode, Timeout, Header konfigurierbar) |
 | POST   | `/resolve`   | Löst einen `hostname` per DNS auf                      |
 | POST   | `/postbody`  | Echoed einen JSON-Body zurück (`message`, `value`)     |
 | GET    | `/healthz`   | Liveness-/Readiness-Check, liefert `{"status": "ok"}`  |
