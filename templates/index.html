@@ -3,22 +3,34 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>GET Request Tester</title>
+    <title>Request Tester</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
     <main>
-        <h1>GET Request Tester</h1>
-        <p class="subtitle">HTTP-Requests, DNS-Auflösung und Chain-Aufrufe direkt aus dem Pod heraus testen.</p>
+        <span class="brand">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
+            httptester
+        </span>
+        <p class="subtitle"></p>
 
         <input type="radio" name="tabs" id="tab-request" class="tab-input" {% if active_tab not in ("chain", "hostname") %}checked{% endif %}>
         <input type="radio" name="tabs" id="tab-hostname" class="tab-input" {% if active_tab == "hostname" %}checked{% endif %}>
         <input type="radio" name="tabs" id="tab-chain" class="tab-input" {% if active_tab == "chain" %}checked{% endif %}>
 
         <nav class="tabs">
-            <label for="tab-request" class="tab-label">Request</label>
-            <label for="tab-hostname" class="tab-label">Hostname</label>
-            <label for="tab-chain" class="tab-label">Chain</label>
+            <label for="tab-request" class="tab-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+                Request
+            </label>
+            <label for="tab-hostname" class="tab-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15 15 0 010 20 15 15 0 010-20z"/></svg>
+                Hostname
+            </label>
+            <label for="tab-chain" class="tab-label">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                Chain
+            </label>
         </nav>
 
         <div class="tab-panel" id="panel-request">
@@ -127,7 +139,14 @@
             <section>
                 <h2>Chain-Ergebnis</h2>
                 <p>
-                    Status: <strong>{{ chain_result.final_status }}</strong>
+                    Status:
+                    {% if chain_result.final_status < 300 %}
+                    <span class="badge badge-ok">{{ chain_result.final_status }}</span>
+                    {% elif chain_result.final_status < 400 %}
+                    <span class="badge badge-warn">{{ chain_result.final_status }}</span>
+                    {% else %}
+                    <span class="badge badge-err">{{ chain_result.final_status }}</span>
+                    {% endif %}
                     {% if chain_result.message %}&middot; Message: {{ chain_result.message }}{% endif %}
                 </p>
                 <table>
@@ -142,7 +161,17 @@
                     <tr>
                         <td>{{ loop.index }}</td>
                         <td>{{ hop.target }}</td>
-                        <td>{{ hop.status_code if hop.status_code is not none else "-" }}</td>
+                        <td>
+                            {% if hop.status_code is none %}
+                            <span class="badge badge-muted">-</span>
+                            {% elif hop.status_code < 300 %}
+                            <span class="badge badge-ok">{{ hop.status_code }}</span>
+                            {% elif hop.status_code < 400 %}
+                            <span class="badge badge-warn">{{ hop.status_code }}</span>
+                            {% else %}
+                            <span class="badge badge-err">{{ hop.status_code }}</span>
+                            {% endif %}
+                        </td>
                         <td>{{ hop.duration_ms if hop.duration_ms is not none else "-" }}</td>
                         <td>{{ hop.error if hop.error else "-" }}</td>
                     </tr>
