@@ -40,10 +40,6 @@ idna==3.18
     #   anyio
     #   httpx
     #   requests
-jinja2==3.1.6
-    # via httptester (pyproject.toml)
-markupsafe==3.0.3
-    # via jinja2
 parse==1.22.1
     # via
     #   behave
@@ -56,8 +52,6 @@ pydantic==2.13.4
     #   fastapi
 pydantic-core==2.46.4
     # via pydantic
-python-multipart==0.0.32
-    # via httptester (pyproject.toml)
 requests==2.34.2
     # via httptester (pyproject.toml)
 six==1.17.0
