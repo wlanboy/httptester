@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Request Tester</title>
+    <title>httptester</title>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -12,11 +12,11 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l6-6-6-6M12 19h8"/></svg>
             httptester
         </span>
-        <p class="subtitle"></p>
+        <p class="subtitle">Requests, DNS-Auflösung und Service-Ketten direkt aus dem Pod testen &mdash; ohne eigenes curl/dig im Cluster.</p>
 
-        <input type="radio" name="tabs" id="tab-request" class="tab-input" {% if active_tab not in ("chain", "hostname") %}checked{% endif %}>
-        <input type="radio" name="tabs" id="tab-hostname" class="tab-input" {% if active_tab == "hostname" %}checked{% endif %}>
-        <input type="radio" name="tabs" id="tab-chain" class="tab-input" {% if active_tab == "chain" %}checked{% endif %}>
+        <input type="radio" name="tabs" id="tab-request" class="tab-input" checked>
+        <input type="radio" name="tabs" id="tab-hostname" class="tab-input">
+        <input type="radio" name="tabs" id="tab-chain" class="tab-input">
 
         <nav class="tabs">
             <label for="tab-request" class="tab-label">
@@ -36,10 +36,10 @@
         <div class="tab-panel" id="panel-request">
             <section>
                 <p>Request an eine URL senden</p>
-                <form method="post" action="/">
+                <form id="request-form">
                     <div class="field">
                         <label for="url">URL</label>
-                        <input type="text" id="url" name="url" required>
+                        <input type="text" id="url" name="url" placeholder="https://example.com" required>
                     </div>
                     <div class="row">
                         <div class="field">
@@ -61,62 +61,58 @@
                     </div>
                     <div class="field">
                         <label for="headers">Header (ein "Key: Value" pro Zeile)</label>
-                        <textarea id="headers" name="headers" rows="3"></textarea>
+                        <textarea id="headers" name="headers" rows="3" placeholder="X-Test: abc"></textarea>
                     </div>
-                    <button type="submit">Senden</button>
+                    <button type="submit">
+                        <span class="btn-label">Senden</span>
+                        <span class="spinner" hidden></span>
+                    </button>
                 </form>
             </section>
 
-            {% if response %}
-            <section>
-                <h2>Response</h2>
-                <textarea rows="10" readonly>{{ response }}</textarea>
+            <section id="request-result" hidden>
+                <h2>
+                    Response
+                    <button type="button" class="copy-btn" data-copy-target="response-body">Kopieren</button>
+                </h2>
+                <textarea id="response-body" rows="10" readonly></textarea>
+                <div id="headers-section" hidden>
+                    <h2 class="headers-heading">Headers</h2>
+                    <table id="headers-table">
+                        <tr>
+                            <th>Key</th>
+                            <th>Value</th>
+                        </tr>
+                    </table>
+                </div>
             </section>
-            {% if headers %}
-            <section>
-                <h2>Headers</h2>
-                <textarea rows="6" readonly>{{ headers }}</textarea>
-                <table>
-                    <tr>
-                        <th>Key</th>
-                        <th>Value</th>
-                    </tr>
-                    {% for key, value in headers.items() %}
-                    <tr>
-                        <td>{{ key }}</td>
-                        <td>{{ value }}</td>
-                    </tr>
-                    {% endfor %}
-                </table>
-            </section>
-            {% endif %}
-            {% endif %}
         </div>
 
         <div class="tab-panel" id="panel-hostname">
             <section>
                 <p>Hostname auflösen</p>
-                <form method="post" action="/resolve">
+                <form id="resolve-form">
                     <div class="field">
                         <label for="hostname">Hostname</label>
-                        <input type="text" id="hostname" name="hostname" required>
+                        <input type="text" id="hostname" name="hostname" placeholder="service.namespace.svc.cluster.local" required>
                     </div>
-                    <button type="submit">Senden</button>
+                    <button type="submit">
+                        <span class="btn-label">Senden</span>
+                        <span class="spinner" hidden></span>
+                    </button>
                 </form>
             </section>
 
-            {% if dns_response %}
-            <section>
+            <section id="resolve-result" hidden>
                 <h2>Response</h2>
-                <textarea rows="6" readonly>{{ dns_response }}</textarea>
+                <textarea id="resolve-body" rows="4" readonly></textarea>
             </section>
-            {% endif %}
         </div>
 
         <div class="tab-panel" id="panel-chain">
             <section>
                 <p>Kette von httptester-Instanzen der Reihe nach aufrufen (eine URL pro Zeile, letzter Eintrag = Endstation)</p>
-                <form method="post" action="/chain-form">
+                <form id="chain-form">
                     <div class="field">
                         <label for="chain_urls">Kette (eine URL pro Zeile)</label>
                         <textarea id="chain_urls" name="chain_urls" rows="4" placeholder="http://httptester2:5000&#10;http://httptester3:5000" required></textarea>
@@ -131,25 +127,17 @@
                             <input type="number" id="chain_timeout" name="timeout" value="5" min="0.1" max="30" step="0.1">
                         </div>
                     </div>
-                    <button type="submit">Kette starten</button>
+                    <button type="submit">
+                        <span class="btn-label">Kette starten</span>
+                        <span class="spinner" hidden></span>
+                    </button>
                 </form>
             </section>
 
-            {% if chain_result %}
-            <section>
+            <section id="chain-result" hidden>
                 <h2>Chain-Ergebnis</h2>
-                <p>
-                    Status:
-                    {% if chain_result.final_status < 300 %}
-                    <span class="badge badge-ok">{{ chain_result.final_status }}</span>
-                    {% elif chain_result.final_status < 400 %}
-                    <span class="badge badge-warn">{{ chain_result.final_status }}</span>
-                    {% else %}
-                    <span class="badge badge-err">{{ chain_result.final_status }}</span>
-                    {% endif %}
-                    {% if chain_result.message %}&middot; Message: {{ chain_result.message }}{% endif %}
-                </p>
-                <table>
+                <p id="chain-status"></p>
+                <table id="chain-table">
                     <tr>
                         <th>#</th>
                         <th>Ziel</th>
@@ -157,29 +145,11 @@
                         <th>Dauer (ms)</th>
                         <th>Fehler</th>
                     </tr>
-                    {% for hop in chain_result.path %}
-                    <tr>
-                        <td>{{ loop.index }}</td>
-                        <td>{{ hop.target }}</td>
-                        <td>
-                            {% if hop.status_code is none %}
-                            <span class="badge badge-muted">-</span>
-                            {% elif hop.status_code < 300 %}
-                            <span class="badge badge-ok">{{ hop.status_code }}</span>
-                            {% elif hop.status_code < 400 %}
-                            <span class="badge badge-warn">{{ hop.status_code }}</span>
-                            {% else %}
-                            <span class="badge badge-err">{{ hop.status_code }}</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ hop.duration_ms if hop.duration_ms is not none else "-" }}</td>
-                        <td>{{ hop.error if hop.error else "-" }}</td>
-                    </tr>
-                    {% endfor %}
                 </table>
             </section>
-            {% endif %}
         </div>
     </main>
+    <div id="toast" class="toast" role="alert" hidden></div>
+    <script src="/static/app.js" defer></script>
 </body>
 </html>

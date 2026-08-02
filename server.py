@@ -1,15 +1,13 @@
 import asyncio
-import html
 import logging
 import socket
 import time
 from contextlib import asynccontextmanager
 
 import requests
-from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 logging.basicConfig(level=logging.INFO)
@@ -30,15 +28,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
 
 @app.get("/healthz")
 async def healthz():
     return JSONResponse(content={"status": "ok"})
 
-@app.get("/", response_class=HTMLResponse)
-async def get_home(request: Request):
-    return templates.TemplateResponse(request, "index.html")
+@app.get("/")
+async def get_home():
+    return FileResponse("static/index.html")
 
 def parse_headers(raw: str) -> dict[str, str]:
     headers = {}
@@ -50,24 +47,28 @@ def parse_headers(raw: str) -> dict[str, str]:
         headers[key.strip()] = value.strip()
     return headers
 
-@app.post("/", response_class=HTMLResponse)
-async def post_home(
-    request: Request,
-    url: str = Form(...),
-    method: str = Form("GET"),
-    timeout: str = Form("5"),
-    headers: str = Form(""),
-):
+class RequestIn(BaseModel):
+    url: str
+    method: str = "GET"
+    timeout: str = "5"
+    headers: str = ""
+
+class RequestOut(BaseModel):
+    response: str
+    headers: dict[str, str] = {}
+
+@app.post("/api/request", response_model=RequestOut)
+async def post_request(data: RequestIn):
     response_text = ""
-    response_headers = {}
-    method = method.upper() if method.upper() in ALLOWED_METHODS else "GET"
+    response_headers: dict[str, str] = {}
+    method = data.method.upper() if data.method.upper() in ALLOWED_METHODS else "GET"
     try:
-        timeout_value = clamp_timeout(float(timeout))
+        timeout_value = clamp_timeout(float(data.timeout))
     except ValueError:
         timeout_value = 5.0
     try:
         res = await asyncio.to_thread(
-            requests.request, method, url, headers=parse_headers(headers), timeout=timeout_value
+            requests.request, method, data.url, headers=parse_headers(data.headers), timeout=timeout_value
         )
         response_text = res.text
         response_headers = dict(res.headers)
@@ -75,29 +76,28 @@ async def post_home(
         response_text = f"Timeout: {e}"
     except Exception as e:  # noqa: BLE001 - surface any error from an arbitrary user-supplied URL
         response_text = f"Fehler: {e}"
-    return templates.TemplateResponse(request, "index.html", {
-        "response": response_text,
-        "headers": response_headers
-    })
+    return RequestOut(response=response_text, headers=response_headers)
 
-@app.post("/resolve", response_class=HTMLResponse)
-async def resolve_hostname(request: Request, hostname: str = Form(...)):
-    response_text = ""
+class ResolveIn(BaseModel):
+    hostname: str
+
+class ResolveOut(BaseModel):
+    result: str
+
+@app.post("/api/resolve", response_model=ResolveOut)
+async def resolve_hostname(data: ResolveIn):
     try:
         ip_address = await asyncio.wait_for(
-            asyncio.to_thread(socket.gethostbyname, hostname), timeout=DNS_TIMEOUT
+            asyncio.to_thread(socket.gethostbyname, data.hostname), timeout=DNS_TIMEOUT
         )
-        response_text = f"Hostname: {html.escape(hostname)} IP-Adresse: {html.escape(ip_address)}"
+        result = f"Hostname: {data.hostname} IP-Adresse: {ip_address}"
     except TimeoutError:
-        response_text = f"Timeout beim Auflösen des Hostnamens '{hostname}' nach {DNS_TIMEOUT}s"
+        result = f"Timeout beim Auflösen des Hostnamens '{data.hostname}' nach {DNS_TIMEOUT}s"
     except socket.gaierror as e:
-        response_text = f"Fehler beim Auflösen des Hostnamens '{hostname}': {e}"
+        result = f"Fehler beim Auflösen des Hostnamens '{data.hostname}': {e}"
     except Exception as e:  # noqa: BLE001 - surface any error from an arbitrary user-supplied hostname
-        response_text = f"Ein unerwarteter Fehler ist aufgetreten: {e}"
-    return templates.TemplateResponse(request, "index.html", {
-        "dns_response": response_text,
-        "active_tab": "hostname",
-    })
+        result = f"Ein unerwarteter Fehler ist aufgetreten: {e}"
+    return ResolveOut(result=result)
 
 class BodyData(BaseModel):
     message: str
@@ -175,21 +175,7 @@ async def run_chain(data: ChainRequest) -> ChainResponse:
 async def chain(data: ChainRequest):
     return await run_chain(data)
 
-@app.post("/chain-form", response_class=HTMLResponse)
-async def chain_form(
-    request: Request,
-    message: str = Form(""),
-    chain_urls: str = Form(""),
-    timeout: str = Form("5"),
-):
-    urls = [line.strip() for line in chain_urls.splitlines() if line.strip()]
-    try:
-        timeout_value = clamp_timeout(float(timeout))
-    except ValueError:
-        timeout_value = CHAIN_TIMEOUT_DEFAULT
+if __name__ == "__main__":
+    import uvicorn
 
-    result = await run_chain(ChainRequest(message=message or None, chain=urls, timeout=timeout_value))
-    return templates.TemplateResponse(request, "index.html", {
-        "chain_result": result,
-        "active_tab": "chain",
-    })
+    uvicorn.run(app, host="0.0.0.0", port=5000)

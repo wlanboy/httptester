@@ -7,25 +7,25 @@ Feature: Testen der FastAPI App
 
   Scenario: POST Anfrage mit gültiger URL
     Given die FastAPI App läuft
-    When ich eine POST Anfrage auf "/" mit url "https://google.de"
+    When ich eine POST Anfrage auf "/api/request" mit url "https://google.de"
     Then erhalte ich den Statuscode 200
     And die Antwort enthält "google"
 
   Scenario: POST Anfrage mit ungültiger URL
     Given die FastAPI App läuft
-    When ich eine POST Anfrage auf "/" mit url "http://nicht-existierend.local"
+    When ich eine POST Anfrage auf "/api/request" mit url "http://nicht-existierend.local"
     Then erhalte ich den Statuscode 200
     And die Antwort enthält "Fehler"
 
   Scenario: Hostname erfolgreich auflösen
     Given die FastAPI App läuft
-    When ich eine POST Anfrage auf "/resolve" mit hostname "localhost"
+    When ich eine POST Anfrage auf "/api/resolve" mit hostname "localhost"
     Then erhalte ich den Statuscode 200
     And die Antwort enthält "127.0.0.1"
 
   Scenario: Hostname nicht auflösbar
     Given die FastAPI App läuft
-    When ich eine POST Anfrage auf "/resolve" mit hostname "nonexistent.invalid"
+    When ich eine POST Anfrage auf "/api/resolve" mit hostname "nonexistent.invalid"
     Then erhalte ich den Statuscode 200
     And die Antwort enthält "Fehler"
 
@@ -41,13 +41,13 @@ Feature: Testen der FastAPI App
 
   Scenario: GET-Methode gegen /healthz einer anderen Instanz klappt
     Given die FastAPI App läuft
-    When ich eine erweiterte POST Anfrage auf "/" mit url "http://127.0.0.1:5091/healthz", method "GET", timeout "3" und header "X-Test: abc"
+    When ich eine erweiterte POST Anfrage auf "/api/request" mit url "http://127.0.0.1:5091/healthz", method "GET", timeout "3" und header "X-Test: abc"
     Then erhalte ich den Statuscode 200
     And die Antwort enthält "ok"
 
   Scenario: Nicht erlaubte Methode gegen /healthz liefert 405 in der Antwort
     Given die FastAPI App läuft
-    When ich eine erweiterte POST Anfrage auf "/" mit url "http://127.0.0.1:5091/healthz", method "PUT", timeout "3" und header "X-Test: abc"
+    When ich eine erweiterte POST Anfrage auf "/api/request" mit url "http://127.0.0.1:5091/healthz", method "PUT", timeout "3" und header "X-Test: abc"
     Then erhalte ich den Statuscode 200
     And die Antwort enthält "Method Not Allowed"
 

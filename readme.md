@@ -28,6 +28,12 @@ uv sync
 .venv/bin/uvicorn server:app --reload --host 0.0.0.0 --port 5000
 ```
 
+Oder direkt ohne `--reload`:
+
+```bash
+uv run server.py
+```
+
 ## from scratch
 
 ```bash
@@ -53,16 +59,19 @@ uv run pyright .
 
 ## endpoints
 
-| Method | Path         | Beschreibung                                          |
-|--------|--------------|--------------------------------------------------------|
-| GET    | `/`          | HTML-Formular                                          |
-| POST   | `/`          | Request gegen `url` (Methode, Timeout, Header konfigurierbar) |
-| POST   | `/resolve`   | Löst einen `hostname` per DNS auf                      |
-| POST   | `/postbody`  | Echoed einen JSON-Body zurück (`message`, `value`)     |
-| GET    | `/healthz`   | Liveness-/Readiness-Check, liefert `{"status": "ok"}`  |
-| POST   | `/chain`     | JSON-API: ruft `chain[0]` auf, reicht den Rest weiter und liefert `final_status` + `path` (Hops mit Status/Dauer/Fehler) |
-| POST   | `/chain-form`| HTML-Formular-Variante von `/chain` (Tab "Chain" in der UI) |
-| GET    | `/docs`      | Swagger UI                                             |
+| Method | Path            | Beschreibung                                          |
+|--------|-----------------|--------------------------------------------------------|
+| GET    | `/`             | Statische Web-UI (`static/index.html`)                 |
+| POST   | `/api/request`  | JSON-API: Request gegen `url` (Methode, Timeout, Header konfigurierbar) |
+| POST   | `/api/resolve`  | JSON-API: Löst einen `hostname` per DNS auf             |
+| POST   | `/postbody`     | Echoed einen JSON-Body zurück (`message`, `value`)     |
+| GET    | `/healthz`      | Liveness-/Readiness-Check, liefert `{"status": "ok"}`  |
+| POST   | `/chain`        | JSON-API: ruft `chain[0]` auf, reicht den Rest weiter und liefert `final_status` + `path` (Hops mit Status/Dauer/Fehler); wird auch vom Tab "Chain" in der UI direkt per fetch aufgerufen |
+| GET    | `/docs`         | Swagger UI                                             |
+
+Die Web-UI (`static/index.html`, `static/app.js`) ist reines statisches HTML/CSS/JS
+ohne serverseitiges Templating und spricht ausschließlich die obigen JSON-Endpunkte
+per `fetch` an.
 
 ## build
 
