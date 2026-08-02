@@ -1,7 +1,9 @@
-from behave import given, when, then
-from fastapi.testclient import TestClient
-from server import app
 import json
+
+from behave import given, then, when
+from fastapi.testclient import TestClient
+
+from server import app
 
 client = TestClient(app)
 

@@ -1,17 +1,19 @@
+import asyncio
+import html
+import logging
+import socket
+import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Form
+
+import requests
+from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-import requests
-import socket
-import html
-import logging
-import asyncio
-import time
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 DNS_TIMEOUT = 5.0
 MIN_REQUEST_TIMEOUT = 0.1
@@ -24,7 +26,7 @@ def clamp_timeout(value: float) -> float:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     yield
-    logging.info("Shutdown event received. Shutting down gracefully...")
+    logger.info("Shutdown event received. Shutting down gracefully...")
 
 app = FastAPI(lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -71,7 +73,7 @@ async def post_home(
         response_headers = dict(res.headers)
     except requests.exceptions.Timeout as e:
         response_text = f"Timeout: {e}"
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - surface any error from an arbitrary user-supplied URL
         response_text = f"Fehler: {e}"
     return templates.TemplateResponse(request, "index.html", {
         "response": response_text,
@@ -86,11 +88,11 @@ async def resolve_hostname(request: Request, hostname: str = Form(...)):
             asyncio.to_thread(socket.gethostbyname, hostname), timeout=DNS_TIMEOUT
         )
         response_text = f"Hostname: {html.escape(hostname)} IP-Adresse: {html.escape(ip_address)}"
-    except asyncio.TimeoutError:
+    except TimeoutError:
         response_text = f"Timeout beim Auflösen des Hostnamens '{hostname}' nach {DNS_TIMEOUT}s"
     except socket.gaierror as e:
         response_text = f"Fehler beim Auflösen des Hostnamens '{hostname}': {e}"
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - surface any error from an arbitrary user-supplied hostname
         response_text = f"Ein unerwarteter Fehler ist aufgetreten: {e}"
     return templates.TemplateResponse(request, "index.html", {
         "dns_response": response_text,
@@ -103,7 +105,7 @@ class BodyData(BaseModel):
 
 @app.post("/postbody")
 async def post_body(data: BodyData):
-    logging.info(f"Received body: {data}")
+    logger.info(f"Received body: {data}")
     return JSONResponse(content={
         "echo_message": data.message,
         "echo_value": data.value,
