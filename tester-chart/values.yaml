@@ -1,4 +1,4 @@
-namespace: tester
+namespace: httptester
 deploymentName: tester
 
 image:
