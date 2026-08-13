@@ -44,6 +44,12 @@ uv pip install -r requirements.txt
 .venv/bin/uvicorn server:app --reload --host 0.0.0.0 --port 5000
 ```
 
+## run unit tests
+
+```bash
+.venv/bin/pytest tests/
+```
+
 ## run behave tests
 
 ```bash
