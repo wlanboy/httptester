@@ -52,17 +52,31 @@
         return div.innerHTML;
     }
 
-    const requestForm = document.getElementById("request-form");
-    requestForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        setLoading(requestForm, true);
-        try {
-            const data = await postJson("/api/request", {
-                url: document.getElementById("url").value,
-                method: document.getElementById("method").value,
-                timeout: document.getElementById("timeout").value,
-                headers: document.getElementById("headers").value,
-            });
+    function handleFormSubmit(form, { buildBody, url, onSuccess, errorPrefix }) {
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            setLoading(form, true);
+            try {
+                const data = await postJson(url, buildBody());
+                onSuccess(data);
+            } catch (err) {
+                showToast(`${errorPrefix}: ${err.message}`);
+            } finally {
+                setLoading(form, false);
+            }
+        });
+    }
+
+    handleFormSubmit(document.getElementById("request-form"), {
+        url: "/api/request",
+        errorPrefix: "Request fehlgeschlagen",
+        buildBody: () => ({
+            url: document.getElementById("url").value,
+            method: document.getElementById("method").value,
+            timeout: document.getElementById("timeout").value,
+            headers: document.getElementById("headers").value,
+        }),
+        onSuccess: (data) => {
             document.getElementById("response-body").value = data.response;
             const headersTable = document.getElementById("headers-table");
             const entries = Object.entries(data.headers || {});
@@ -70,43 +84,34 @@
                 entries.map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join("");
             document.getElementById("headers-section").hidden = entries.length === 0;
             document.getElementById("request-result").hidden = false;
-        } catch (err) {
-            showToast(`Request fehlgeschlagen: ${err.message}`);
-        } finally {
-            setLoading(requestForm, false);
-        }
+        },
     });
 
-    const resolveForm = document.getElementById("resolve-form");
-    resolveForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        setLoading(resolveForm, true);
-        try {
-            const data = await postJson("/api/resolve", {
-                hostname: document.getElementById("hostname").value,
-            });
+    handleFormSubmit(document.getElementById("resolve-form"), {
+        url: "/api/resolve",
+        errorPrefix: "Auflösen fehlgeschlagen",
+        buildBody: () => ({
+            hostname: document.getElementById("hostname").value,
+        }),
+        onSuccess: (data) => {
             document.getElementById("resolve-body").value = data.result;
             document.getElementById("resolve-result").hidden = false;
-        } catch (err) {
-            showToast(`Auflösen fehlgeschlagen: ${err.message}`);
-        } finally {
-            setLoading(resolveForm, false);
-        }
+        },
     });
 
-    const chainForm = document.getElementById("chain-form");
-    chainForm.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        setLoading(chainForm, true);
-        try {
+    handleFormSubmit(document.getElementById("chain-form"), {
+        url: "/chain",
+        errorPrefix: "Chain fehlgeschlagen",
+        buildBody: () => {
             const chain = document.getElementById("chain_urls").value
                 .split("\n")
                 .map((line) => line.trim())
                 .filter(Boolean);
             const message = document.getElementById("chain_message").value;
             const timeout = parseFloat(document.getElementById("chain_timeout").value) || 5;
-            const data = await postJson("/chain", { message: message || null, chain, timeout });
-
+            return { message: message || null, chain, timeout };
+        },
+        onSuccess: (data) => {
             document.getElementById("chain-status").innerHTML =
                 `Status: ${badge(data.final_status)}` +
                 (data.message ? ` &middot; Message: ${escapeHtml(data.message)}` : "");
@@ -122,11 +127,7 @@
                 </tr>`).join("");
             table.innerHTML = "<tr><th>#</th><th>Ziel</th><th>Status</th><th>Dauer (ms)</th><th>Fehler</th></tr>" + rows;
             document.getElementById("chain-result").hidden = false;
-        } catch (err) {
-            showToast(`Chain fehlgeschlagen: ${err.message}`);
-        } finally {
-            setLoading(chainForm, false);
-        }
+        },
     });
 
     document.querySelectorAll(".copy-btn").forEach((btn) => {
