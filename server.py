@@ -2,13 +2,15 @@ import asyncio
 import logging
 import socket
 import time
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
+from typing import TypeVar
 
 import requests
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -20,6 +22,22 @@ ALLOWED_METHODS = {"GET", "POST", "PUT", "DELETE", "HEAD", "PATCH", "OPTIONS"}
 
 def clamp_timeout(value: float) -> float:
     return max(MIN_REQUEST_TIMEOUT, min(value, MAX_REQUEST_TIMEOUT))
+
+T = TypeVar("T")
+
+async def try_or_message(
+    work: Callable[[], Awaitable[T]],
+    *,
+    handlers: list[tuple[type[BaseException], Callable[[BaseException], T]]],
+    default: Callable[[BaseException], T],
+) -> T:
+    try:
+        return await work()
+    except Exception as e:  # noqa: BLE001 - dispatched to caller-supplied handlers below
+        for exc_type, formatter in handlers:
+            if isinstance(e, exc_type):
+                return formatter(e)
+        return default(e)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -50,8 +68,16 @@ def parse_headers(raw: str) -> dict[str, str]:
 class RequestIn(BaseModel):
     url: str
     method: str = "GET"
-    timeout: str = "5"
+    timeout: float = 5.0
     headers: str = ""
+
+    @field_validator("timeout", mode="before")
+    @classmethod
+    def _coerce_timeout(cls, v: object) -> float:
+        try:
+            return float(v)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return 5.0
 
 class RequestOut(BaseModel):
     response: str
@@ -59,23 +85,20 @@ class RequestOut(BaseModel):
 
 @app.post("/api/request", response_model=RequestOut)
 async def post_request(data: RequestIn):
-    response_text = ""
-    response_headers: dict[str, str] = {}
     method = data.method.upper() if data.method.upper() in ALLOWED_METHODS else "GET"
-    try:
-        timeout_value = clamp_timeout(float(data.timeout))
-    except ValueError:
-        timeout_value = 5.0
-    try:
+    timeout_value = clamp_timeout(data.timeout)
+
+    async def work() -> tuple[str, dict[str, str]]:
         res = await asyncio.to_thread(
             requests.request, method, data.url, headers=parse_headers(data.headers), timeout=timeout_value
         )
-        response_text = res.text
-        response_headers = dict(res.headers)
-    except requests.exceptions.Timeout as e:
-        response_text = f"Timeout: {e}"
-    except Exception as e:  # noqa: BLE001 - surface any error from an arbitrary user-supplied URL
-        response_text = f"Fehler: {e}"
+        return res.text, dict(res.headers)
+
+    response_text, response_headers = await try_or_message(
+        work,
+        handlers=[(requests.exceptions.Timeout, lambda e: (f"Timeout: {e}", {}))],
+        default=lambda e: (f"Fehler: {e}", {}),
+    )
     return RequestOut(response=response_text, headers=response_headers)
 
 class ResolveIn(BaseModel):
@@ -86,17 +109,20 @@ class ResolveOut(BaseModel):
 
 @app.post("/api/resolve", response_model=ResolveOut)
 async def resolve_hostname(data: ResolveIn):
-    try:
+    async def work() -> str:
         ip_address = await asyncio.wait_for(
             asyncio.to_thread(socket.gethostbyname, data.hostname), timeout=DNS_TIMEOUT
         )
-        result = f"Hostname: {data.hostname} IP-Adresse: {ip_address}"
-    except TimeoutError:
-        result = f"Timeout beim Auflösen des Hostnamens '{data.hostname}' nach {DNS_TIMEOUT}s"
-    except socket.gaierror as e:
-        result = f"Fehler beim Auflösen des Hostnamens '{data.hostname}': {e}"
-    except Exception as e:  # noqa: BLE001 - surface any error from an arbitrary user-supplied hostname
-        result = f"Ein unerwarteter Fehler ist aufgetreten: {e}"
+        return f"Hostname: {data.hostname} IP-Adresse: {ip_address}"
+
+    result = await try_or_message(
+        work,
+        handlers=[
+            (TimeoutError, lambda e: f"Timeout beim Auflösen des Hostnamens '{data.hostname}' nach {DNS_TIMEOUT}s"),
+            (socket.gaierror, lambda e: f"Fehler beim Auflösen des Hostnamens '{data.hostname}': {e}"),
+        ],
+        default=lambda e: f"Ein unerwarteter Fehler ist aufgetreten: {e}",
+    )
     return ResolveOut(result=result)
 
 class BodyData(BaseModel):
