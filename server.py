@@ -157,19 +157,9 @@ class ChainResponse(BaseModel):
     final_status: int
     path: list[ChainHop]
 
-async def run_chain(data: ChainRequest) -> ChainResponse:
-    if not data.chain:
-        return ChainResponse(message=data.message, final_status=200, path=[])
-
-    if len(data.chain) > MAX_CHAIN_HOPS:
-        return ChainResponse(
-            message=data.message,
-            final_status=400,
-            path=[ChainHop(target=data.chain[0], error=f"Kette zu lang (> {MAX_CHAIN_HOPS} Hops), abgebrochen")],
-        )
-
-    next_url, *rest = data.chain
-    timeout_value = clamp_timeout(data.timeout)
+async def _call_next_hop(
+    next_url: str, rest: list[str], data: ChainRequest, timeout_value: float
+) -> tuple[list[ChainHop], int]:
     hop = ChainHop(target=next_url)
     start = time.monotonic()
     try:
@@ -195,6 +185,22 @@ async def run_chain(data: ChainRequest) -> ChainResponse:
         path = [hop]
         final_status = 502
 
+    return path, final_status
+
+async def run_chain(data: ChainRequest) -> ChainResponse:
+    if not data.chain:
+        return ChainResponse(message=data.message, final_status=200, path=[])
+
+    if len(data.chain) > MAX_CHAIN_HOPS:
+        return ChainResponse(
+            message=data.message,
+            final_status=400,
+            path=[ChainHop(target=data.chain[0], error=f"Kette zu lang (> {MAX_CHAIN_HOPS} Hops), abgebrochen")],
+        )
+
+    next_url, *rest = data.chain
+    timeout_value = clamp_timeout(data.timeout)
+    path, final_status = await _call_next_hop(next_url, rest, data, timeout_value)
     return ChainResponse(message=data.message, final_status=final_status, path=path)
 
 @app.post("/chain", response_model=ChainResponse)
