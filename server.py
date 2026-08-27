@@ -4,7 +4,6 @@ import socket
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
-from typing import TypeVar
 
 import requests
 from fastapi import FastAPI
@@ -23,9 +22,7 @@ ALLOWED_METHODS = {"GET", "POST", "PUT", "DELETE", "HEAD", "PATCH", "OPTIONS"}
 def clamp_timeout(value: float) -> float:
     return max(MIN_REQUEST_TIMEOUT, min(value, MAX_REQUEST_TIMEOUT))
 
-T = TypeVar("T")
-
-async def try_or_message(
+async def try_or_message[T](
     work: Callable[[], Awaitable[T]],
     *,
     handlers: list[tuple[type[BaseException], Callable[[BaseException], T]]],
