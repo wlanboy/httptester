@@ -42,6 +42,35 @@ kubectl label namespace tester istio-injection=enabled --overwrite
 helm install tester ./tester-chart -n tester --create-namespace
 ```
 
+## Upgrade
+
+```bash
+helm upgrade tester ./tester-chart -n tester
+```
+
+Bei geänderten Values (z. B. anderes Image-Tag):
+
+```bash
+helm upgrade tester ./tester-chart -n tester --set image.tag=1.2.3
+```
+
+## Redeployment nach Neubau des Containers
+
+Da `image.tag` standardmäßig auf `latest` steht, ändert `helm upgrade` allein die Deployment-Spec nicht (kein Diff), daher wird kein neuer Pod ausgerollt. Es gibt keine explizite `imagePullPolicy` im Chart – Kubernetes nutzt für den Tag `latest` automatisch `Always`, ein Neustart der Pods genügt also, um das neue Image zu ziehen:
+
+```bash
+kubectl rollout restart deployment/tester -n tester
+kubectl rollout status deployment/tester -n tester
+```
+
+Alternativ mit Helm (erzwingt ein Redeployment auch ohne Values-Änderung):
+
+```bash
+helm upgrade tester ./tester-chart -n tester --set podAnnotations.redeployedAt="$(date +%s)"
+```
+
+> Hinweis: `podAnnotations` existiert aktuell nicht im Chart/Values und müsste im `deployment.yaml`-Template ergänzt werden (z. B. unter `spec.template.metadata.annotations`), damit dieser Befehl einen Pod-Neustart auslöst. Ohne diese Ergänzung ist `kubectl rollout restart` der zuverlässige Weg.
+
 ## Hinweise
 
 - Der Gateway-Selector erwartet ein Istio Ingress-Gateway mit dem Label `istio: ingressgateway`.
