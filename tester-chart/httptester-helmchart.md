@@ -42,7 +42,7 @@ fehlen.
 | `ingress.controller` | Aktiver Ingress-Weg: `istio`, `traefik` oder `none` | `istio` |
 | `ingress.hosts` | Liste externer Hostnamen für den Ingress (gilt für beide Controller) | `httptester.tp.lan`, `httptester.gmk.lan`, `httptester.big.lan`, `httptester.localhost` |
 | `istio.gateway.selector` | Selector für das Istio Ingress-Gateway | `istio: ingressgateway` |
-| `traefik.entryPoints` | Traefik Entrypoints für die IngressRoute | `[web]` |
+| `traefik.entryPoints` | Traefik Entrypoints für die IngressRoute | `[web, websecure]` |
 
 Für die Wahl des Controllers stehen zwei schlanke Override-Dateien bereit,
 statt `ingress.controller` von Hand setzen zu müssen:
@@ -113,6 +113,7 @@ helm upgrade tester ./tester-chart -n httptester --set podAnnotations.redeployed
 - Der Gateway-Selector (`istio.gateway.selector`) erwartet standardmäßig ein Istio Ingress-Gateway mit dem Label `istio: ingressgateway`.
 - Der VirtualService exportiert die Route auf `.` (eigener Namespace), `istio-ingress` und `istio-system` und bindet sowohl das eigene Gateway als auch `mesh` (für internen Traffic innerhalb des Meshes) ein.
 - Bei `ingress.controller: traefik` wird kein Mesh-Routing für internen Traffic benötigt – die IngressRoute deckt nur externen Traffic über die konfigurierten Hosts ab.
+- Die IngressRoute setzt kein eigenes `tls`-Feld – `websecure` in `traefik.entryPoints` reicht aus, sofern der Cluster den Entrypoint per `--entryPoints.websecure.http.tls=true` und eine `TLSStore` mit `defaultCertificate` bereitstellt (so im Cluster dieses Repos konfiguriert). In Clustern ohne Default-Zertifikat schlägt der TLS-Handshake fehl bzw. es wird ein selbstsigniertes Traefik-Zertifikat verwendet.
 - Bei `ingress.controller: none` wird keine Ingress-Ressource gerendert; Deployment und Service laufen weiter.
 - Es gibt aktuell keine Ressourcen-Limits/-Requests, HPA oder ConfigMap/Secret-Einbindung im Chart.
 
