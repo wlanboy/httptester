@@ -1,4 +1,4 @@
-{{- if .Values.ingress.enabled }}
+{{- if and (eq .Values.ingress.controller "istio") (.Capabilities.APIVersions.Has "networking.istio.io/v1alpha3") }}
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
@@ -6,7 +6,7 @@ metadata:
   namespace: {{ .Values.namespace }}
 spec:
   selector:
-    istio: ingressgateway
+    {{- toYaml .Values.istio.gateway.selector | nindent 4 }}
   servers:
     - port:
         number: 80

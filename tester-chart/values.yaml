@@ -9,9 +9,19 @@ service:
   port: 5000
 
 ingress:
-  enabled: true
+  # traefik | istio | none
+  controller: istio
   hosts:
     - httptester.tp.lan
     - httptester.gmk.lan
     - httptester.big.lan
     - httptester.localhost
+
+traefik:
+  entryPoints:
+    - web
+
+istio:
+  gateway:
+    selector:
+      istio: ingressgateway
