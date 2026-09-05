@@ -76,27 +76,37 @@ class RequestIn(BaseModel):
         except (TypeError, ValueError):
             return 5.0
 
+class RedirectHop(BaseModel):
+    status_code: int
+    from_url: str
+    location: str
+
 class RequestOut(BaseModel):
     response: str
     headers: dict[str, str] = {}
+    redirects: list[RedirectHop] = []
 
 @app.post("/api/request", response_model=RequestOut)
 async def post_request(data: RequestIn):
     method = data.method.upper() if data.method.upper() in ALLOWED_METHODS else "GET"
     timeout_value = clamp_timeout(data.timeout)
 
-    async def work() -> tuple[str, dict[str, str]]:
+    async def work() -> tuple[str, dict[str, str], list[RedirectHop]]:
         res = await asyncio.to_thread(
             requests.request, method, data.url, headers=parse_headers(data.headers), timeout=timeout_value
         )
-        return res.text, dict(res.headers)
+        redirects = [
+            RedirectHop(status_code=hop.status_code, from_url=hop.url, location=hop.headers.get("Location", ""))
+            for hop in res.history
+        ]
+        return res.text, dict(res.headers), redirects
 
-    response_text, response_headers = await try_or_message(
+    response_text, response_headers, redirects = await try_or_message(
         work,
-        handlers=[(requests.exceptions.Timeout, lambda e: (f"Timeout: {e}", {}))],
-        default=lambda e: (f"Fehler: {e}", {}),
+        handlers=[(requests.exceptions.Timeout, lambda e: (f"Timeout: {e}", {}, []))],
+        default=lambda e: (f"Fehler: {e}", {}, []),
     )
-    return RequestOut(response=response_text, headers=response_headers)
+    return RequestOut(response=response_text, headers=response_headers, redirects=redirects)
 
 class ResolveIn(BaseModel):
     hostname: str

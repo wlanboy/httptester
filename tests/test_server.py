@@ -81,25 +81,37 @@ def test_post_request_success():
     mock_response = MagicMock()
     mock_response.text = "hello world"
     mock_response.headers = {"Content-Type": "text/plain"}
+    mock_response.history = []
     with patch("server.requests.request", return_value=mock_response) as mock_request:
         res = client.post("/api/request", json={"url": "http://example.local"})
     assert res.status_code == 200
     body = res.json()
     assert body["response"] == "hello world"
     assert body["headers"] == {"Content-Type": "text/plain"}
+    assert body["redirects"] == []
     args, _kwargs = mock_request.call_args
     assert args[0] == "GET"
     assert args[1] == "http://example.local"
 
+def test_post_request_follows_redirects():
+    hop = MagicMock(status_code=301, url="http://example.local", headers={"Location": "http://example.local/new"})
+    mock_response = MagicMock(text="ok", headers={}, history=[hop])
+    with patch("server.requests.request", return_value=mock_response):
+        res = client.post("/api/request", json={"url": "http://example.local"})
+    body = res.json()
+    assert body["redirects"] == [
+        {"status_code": 301, "from_url": "http://example.local", "location": "http://example.local/new"}
+    ]
+
 def test_post_request_invalid_method_falls_back_to_get():
-    mock_response = MagicMock(text="ok", headers={})
+    mock_response = MagicMock(text="ok", headers={}, history=[])
     with patch("server.requests.request", return_value=mock_response) as mock_request:
         client.post("/api/request", json={"url": "http://example.local", "method": "TRACE"})
     args, _ = mock_request.call_args
     assert args[0] == "GET"
 
 def test_post_request_method_is_uppercased():
-    mock_response = MagicMock(text="ok", headers={})
+    mock_response = MagicMock(text="ok", headers={}, history=[])
     with patch("server.requests.request", return_value=mock_response) as mock_request:
         client.post("/api/request", json={"url": "http://example.local", "method": "post"})
     args, _ = mock_request.call_args
@@ -109,7 +121,7 @@ def test_post_request_invalid_timeout_defaults_to_5():
     captured = {}
     def fake_request(method, url, headers, timeout):
         captured["timeout"] = timeout
-        return MagicMock(text="ok", headers={})
+        return MagicMock(text="ok", headers={}, history=[])
     with patch("server.requests.request", side_effect=fake_request):
         client.post("/api/request", json={"url": "http://example.local", "timeout": "not-a-number"})
     assert captured["timeout"] == 5.0
@@ -127,7 +139,7 @@ def test_post_request_generic_exception():
     assert "Fehler" in res.json()["response"]
 
 def test_post_request_headers_are_parsed_and_forwarded():
-    mock_response = MagicMock(text="ok", headers={})
+    mock_response = MagicMock(text="ok", headers={}, history=[])
     with patch("server.requests.request", return_value=mock_response) as mock_request:
         client.post(
             "/api/request",
