@@ -1,16 +1,20 @@
 # http tester for service mesh
 
-A simple web ui to run http get und nslookup request inside of the cluster.
-Perfect to check availability of services, dns entries and hostnames from a pod point of view.
+Eine einfache Web-UI, um HTTP- und DNS-Anfragen direkt aus dem Cluster heraus abzusetzen.
+Perfekt, um die Erreichbarkeit von Services, DNS-Einträgen und Hostnamen aus Sicht eines Pods zu prüfen.
 
-Der `http-tester` läuft als eigener Pod im Mesh und bietet drei Kernfunktionen:
+Der `http-tester` läuft als eigener Pod im Mesh und bietet vier Kernfunktionen:
 
-* **GET-Requests absetzen** – beliebige URL vom Pod aus aufrufen und Response-Body sowie -Header sehen. Damit lässt sich prüfen, ob ein Service über Ingress-Gateway, Egress-Gateway oder East-West-Gateway erreichbar ist, ob mTLS/AuthorizationPolicies greifen und wie mesh-interne Antworten aussehen.
-* **DNS-Auflösung** – Hostnamen per `nslookup`-Äquivalent aus Pod-Sicht auflösen, um Kubernetes-DNS, ServiceEntries und externe Namensauflösung (z. B. für Egress) zu verifizieren.
+* **GET-Requests absetzen** – beliebige URL vom Pod aus aufrufen und Response-Body sowie -Header sehen, inklusive der vollständig durchlaufenen Redirect-Kette (Status-Code, Quelle und `Location`-Header je Hop, statt sie wie `requests` standardmäßig stillschweigend zu verschlucken). Damit lässt sich prüfen, ob ein Service über Ingress-Gateway, Egress-Gateway oder East-West-Gateway erreichbar ist, ob mTLS/AuthorizationPolicies greifen und wie mesh-interne Antworten aussehen.
+* **DNS-Auflösung** – Hostnamen aus Pod-Sicht auflösen und dabei alle A-/AAAA-Adressen (nicht nur die erste) anzeigen, um Kubernetes-DNS, ServiceEntries, headless Services mit mehreren Pod-IPs und externe Namensauflösung (z. B. für Egress) zu verifizieren.
+* **Mini-Loadcheck** (`/api/repeat`) – denselben Request bis zu 20-mal wiederholen und Latenz-Statistik (min/avg/max) sowie den Status jedes einzelnen Versuchs sehen, z. B. um die Konsistenz eines Services direkt nach einem Rollout oder während eines Canary-Deployments zu prüfen.
 * **JSON-Echo** (`/postbody`) – zum Testen von Payload-Weiterleitung, Content-Type-Handling und Proxy-Verhalten (z. B. Header-Manipulation durch EnvoyFilter).
 
 Da alles über eine einfache Web-UI und Swagger (`/docs`) bedienbar ist, braucht man
 keinen eigenen `curl`/`dig` im Debug-Container – der Pod selbst ist das Werkzeug.
+Die Web-UI merkt sich zuletzt verwendete URLs/Hostnamen sowie das Chain-Formular
+(via `localStorage` im Browser) und bietet einen "Als curl kopieren"-Button, um
+einen UI-Test außerhalb des Pods reproduzieren zu können.
 Typische Einsatzszenarien: Erreichbarkeit von Services vor/nach einem Rollout prüfen,
 Istio Ingress-/Egress-/East-West-Gateways verifizieren, oder schnell aus einem
 bestimmten Namespace heraus testen, ob eine Zielresource überhaupt sichtbar ist.
@@ -68,8 +72,9 @@ uv run pyright .
 | Method | Path            | Beschreibung                                          |
 |--------|-----------------|--------------------------------------------------------|
 | GET    | `/`             | Statische Web-UI (`static/index.html`)                 |
-| POST   | `/api/request`  | JSON-API: Request gegen `url` (Methode, Timeout, Header konfigurierbar) |
-| POST   | `/api/resolve`  | JSON-API: Löst einen `hostname` per DNS auf             |
+| POST   | `/api/request`  | JSON-API: Request gegen `url` (Methode, Timeout, Header konfigurierbar); liefert Response, Headers und die durchlaufene Redirect-Kette (`redirects`) |
+| POST   | `/api/repeat`   | JSON-API: wiederholt denselben Request `count`-mal (max. 20, siehe `MAX_REPEAT_COUNT`) und liefert Latenz-Statistik (`stats`: min/avg/max ms, success_count) plus Einzel-Ergebnisse (`attempts`) |
+| POST   | `/api/resolve`  | JSON-API: Löst einen `hostname` per DNS auf, liefert alle A-/AAAA-Adressen (`addresses`) |
 | POST   | `/postbody`     | Echoed einen JSON-Body zurück (`message`, `value`)     |
 | GET    | `/healthz`      | Liveness-/Readiness-Check, liefert `{"status": "ok"}`  |
 | POST   | `/chain`        | JSON-API: ruft `chain[0]` auf, reicht den Rest weiter und liefert `final_status` + `path` (Hops mit Status/Dauer/Fehler); wird auch vom Tab "Chain" in der UI direkt per fetch aufgerufen |
