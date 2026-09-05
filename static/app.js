@@ -132,44 +132,80 @@
 
     let lastRequestParams = null;
 
-    handleFormSubmit(document.getElementById("request-form"), {
-        url: "/api/request",
-        errorPrefix: "Request fehlgeschlagen",
-        buildBody: () => {
-            lastRequestParams = {
-                url: document.getElementById("url").value,
-                method: document.getElementById("method").value,
-                timeout: document.getElementById("timeout").value,
-                headers: document.getElementById("headers").value,
-            };
-            return lastRequestParams;
-        },
-        onSuccess: (data) => {
-            document.getElementById("response-body").value = data.response;
+    function renderRequestResult(data) {
+        document.getElementById("repeat-result").hidden = true;
+        document.getElementById("response-body").value = data.response;
 
-            const redirects = data.redirects || [];
-            const redirectsTable = document.getElementById("redirects-table");
-            redirectsTable.innerHTML = "<tr><th>#</th><th>Status</th><th>Von</th><th>Nach</th></tr>" +
-                redirects.map((r, index) => `
-                    <tr>
-                        <td>${index + 1}</td>
-                        <td>${badge(r.status_code)}</td>
-                        <td>${escapeHtml(r.from_url)}</td>
-                        <td>${escapeHtml(r.location)}</td>
-                    </tr>`).join("");
-            document.getElementById("redirects-section").hidden = redirects.length === 0;
+        const redirects = data.redirects || [];
+        const redirectsTable = document.getElementById("redirects-table");
+        redirectsTable.innerHTML = "<tr><th>#</th><th>Status</th><th>Von</th><th>Nach</th></tr>" +
+            redirects.map((r, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${badge(r.status_code)}</td>
+                    <td>${escapeHtml(r.from_url)}</td>
+                    <td>${escapeHtml(r.location)}</td>
+                </tr>`).join("");
+        document.getElementById("redirects-section").hidden = redirects.length === 0;
 
-            const headersTable = document.getElementById("headers-table");
-            const entries = Object.entries(data.headers || {});
-            headersTable.innerHTML = "<tr><th>Key</th><th>Value</th></tr>" +
-                entries.map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join("");
-            document.getElementById("headers-section").hidden = entries.length === 0;
-            const headersFilter = document.getElementById("headers-filter");
-            headersFilter.value = "";
-            headersFilter.dispatchEvent(new Event("input"));
+        const headersTable = document.getElementById("headers-table");
+        const entries = Object.entries(data.headers || {});
+        headersTable.innerHTML = "<tr><th>Key</th><th>Value</th></tr>" +
+            entries.map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join("");
+        document.getElementById("headers-section").hidden = entries.length === 0;
+        const headersFilter = document.getElementById("headers-filter");
+        headersFilter.value = "";
+        headersFilter.dispatchEvent(new Event("input"));
 
-            document.getElementById("request-result").hidden = false;
-        },
+        document.getElementById("request-result").hidden = false;
+    }
+
+    function renderRepeatResult(data) {
+        document.getElementById("request-result").hidden = true;
+
+        const s = data.stats;
+        document.getElementById("repeat-summary").innerHTML =
+            `${s.success_count}/${s.count} erfolgreich &middot; min ${s.min_ms ?? "-"} ms ` +
+            `&middot; avg ${s.avg_ms ?? "-"} ms &middot; max ${s.max_ms ?? "-"} ms`;
+
+        const table = document.getElementById("repeat-table");
+        const rows = data.attempts.map((a) => `
+            <tr>
+                <td>${a.attempt}</td>
+                <td>${badge(a.status_code)}</td>
+                <td>${a.duration_ms ?? "-"}</td>
+                <td>${a.error ? escapeHtml(a.error) : "-"}</td>
+            </tr>`).join("");
+        table.innerHTML = "<tr><th>#</th><th>Status</th><th>Dauer (ms)</th><th>Fehler</th></tr>" + rows;
+        document.getElementById("repeat-result").hidden = false;
+
+        showToast(`Wiederholungen abgeschlossen: ${s.success_count}/${s.count} erfolgreich`, s.success_count < s.count);
+    }
+
+    document.getElementById("request-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const repeatCount = parseInt(document.getElementById("repeat_count").value, 10) || 1;
+        lastRequestParams = {
+            url: document.getElementById("url").value,
+            method: document.getElementById("method").value,
+            timeout: document.getElementById("timeout").value,
+            headers: document.getElementById("headers").value,
+        };
+        setLoading(form, true);
+        try {
+            if (repeatCount > 1) {
+                const data = await postJson("/api/repeat", { ...lastRequestParams, count: repeatCount });
+                renderRepeatResult(data);
+            } else {
+                const data = await postJson("/api/request", lastRequestParams);
+                renderRequestResult(data);
+            }
+        } catch (err) {
+            showToast(`Request fehlgeschlagen: ${err.message}`);
+        } finally {
+            setLoading(form, false);
+        }
     });
 
     handleFormSubmit(document.getElementById("resolve-form"), {
@@ -180,6 +216,13 @@
         }),
         onSuccess: (data) => {
             document.getElementById("resolve-body").value = data.result;
+
+            const addresses = data.addresses || [];
+            document.getElementById("resolve-addresses-list").innerHTML =
+                addresses.map((ip) => `<li>${escapeHtml(ip)}</li>`).join("");
+            document.getElementById("resolve-addresses-count").textContent = String(addresses.length);
+            document.getElementById("resolve-addresses-section").hidden = addresses.length === 0;
+
             document.getElementById("resolve-result").hidden = false;
         },
     });
