@@ -7,9 +7,72 @@
     function showToast(message, isError = true) {
         toast.textContent = message;
         toast.classList.toggle("toast-error", isError);
+        toast.classList.toggle("toast-success", !isError);
         toast.hidden = false;
         clearTimeout(toastTimer);
         toastTimer = setTimeout(() => { toast.hidden = true; }, 5000);
+    }
+
+    // --- localStorage history (URL/Hostname) ---
+
+    const HISTORY_LIMIT = 20;
+
+    function loadHistory(key) {
+        try {
+            const raw = localStorage.getItem(key);
+            const parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    }
+
+    function saveToHistory(key, value) {
+        if (!value) return;
+        const list = loadHistory(key).filter((v) => v !== value);
+        list.unshift(value);
+        try {
+            localStorage.setItem(key, JSON.stringify(list.slice(0, HISTORY_LIMIT)));
+        } catch { /* Storage voll oder deaktiviert */ }
+    }
+
+    function renderDatalist(id, values) {
+        const datalist = document.getElementById(id);
+        if (!datalist) return;
+        datalist.innerHTML = values.map((v) => `<option value="${escapeHtml(v)}"></option>`).join("");
+    }
+
+    function wireHistory(inputId, datalistId, storageKey) {
+        renderDatalist(datalistId, loadHistory(storageKey));
+        const form = document.getElementById(inputId).closest("form");
+        form.addEventListener("submit", () => {
+            saveToHistory(storageKey, document.getElementById(inputId).value.trim());
+            renderDatalist(datalistId, loadHistory(storageKey));
+        });
+    }
+
+    // --- localStorage persistence (Chain-Formular) ---
+
+    const CHAIN_STORAGE_KEY = "httptester:chain-form";
+    const CHAIN_FIELD_IDS = ["chain_urls", "chain_message", "chain_timeout"];
+
+    function restoreChainForm() {
+        try {
+            const raw = localStorage.getItem(CHAIN_STORAGE_KEY);
+            if (!raw) return;
+            const saved = JSON.parse(raw);
+            CHAIN_FIELD_IDS.forEach((id) => {
+                if (saved[id]) document.getElementById(id).value = saved[id];
+            });
+        } catch { /* ignorieren */ }
+    }
+
+    function persistChainForm() {
+        const data = {};
+        CHAIN_FIELD_IDS.forEach((id) => { data[id] = document.getElementById(id).value; });
+        try {
+            localStorage.setItem(CHAIN_STORAGE_KEY, JSON.stringify(data));
+        } catch { /* Storage voll oder deaktiviert */ }
     }
 
     function setLoading(form, loading) {
@@ -67,22 +130,44 @@
         });
     }
 
+    let lastRequestParams = null;
+
     handleFormSubmit(document.getElementById("request-form"), {
         url: "/api/request",
         errorPrefix: "Request fehlgeschlagen",
-        buildBody: () => ({
-            url: document.getElementById("url").value,
-            method: document.getElementById("method").value,
-            timeout: document.getElementById("timeout").value,
-            headers: document.getElementById("headers").value,
-        }),
+        buildBody: () => {
+            lastRequestParams = {
+                url: document.getElementById("url").value,
+                method: document.getElementById("method").value,
+                timeout: document.getElementById("timeout").value,
+                headers: document.getElementById("headers").value,
+            };
+            return lastRequestParams;
+        },
         onSuccess: (data) => {
             document.getElementById("response-body").value = data.response;
+
+            const redirects = data.redirects || [];
+            const redirectsTable = document.getElementById("redirects-table");
+            redirectsTable.innerHTML = "<tr><th>#</th><th>Status</th><th>Von</th><th>Nach</th></tr>" +
+                redirects.map((r, index) => `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${badge(r.status_code)}</td>
+                        <td>${escapeHtml(r.from_url)}</td>
+                        <td>${escapeHtml(r.location)}</td>
+                    </tr>`).join("");
+            document.getElementById("redirects-section").hidden = redirects.length === 0;
+
             const headersTable = document.getElementById("headers-table");
             const entries = Object.entries(data.headers || {});
             headersTable.innerHTML = "<tr><th>Key</th><th>Value</th></tr>" +
                 entries.map(([k, v]) => `<tr><td>${escapeHtml(k)}</td><td>${escapeHtml(v)}</td></tr>`).join("");
             document.getElementById("headers-section").hidden = entries.length === 0;
+            const headersFilter = document.getElementById("headers-filter");
+            headersFilter.value = "";
+            headersFilter.dispatchEvent(new Event("input"));
+
             document.getElementById("request-result").hidden = false;
         },
     });
@@ -127,10 +212,13 @@
                 </tr>`).join("");
             table.innerHTML = "<tr><th>#</th><th>Ziel</th><th>Status</th><th>Dauer (ms)</th><th>Fehler</th></tr>" + rows;
             document.getElementById("chain-result").hidden = false;
+
+            const ok = data.final_status < 400;
+            showToast(`Kette ${ok ? "erfolgreich" : "mit Fehler"} beendet (Status ${data.final_status})`, !ok);
         },
     });
 
-    document.querySelectorAll(".copy-btn").forEach((btn) => {
+    document.querySelectorAll(".copy-btn[data-copy-target]").forEach((btn) => {
         btn.addEventListener("click", async () => {
             const target = document.getElementById(btn.dataset.copyTarget);
             try {
@@ -142,5 +230,55 @@
                 showToast("Kopieren nicht möglich (Clipboard-Zugriff verweigert)");
             }
         });
+    });
+
+    // --- Als curl kopieren ---
+
+    function buildCurlCommand(params) {
+        if (!params || !params.url) return "";
+        const parts = ["curl", "-i", "-X", params.method || "GET"];
+        (params.headers || "")
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean)
+            .forEach((line) => parts.push("-H", `"${line.replace(/"/g, '\\"')}"`));
+        if (params.timeout) parts.push("--max-time", String(params.timeout));
+        parts.push(`"${params.url}"`);
+        return parts.join(" ");
+    }
+
+    document.getElementById("curl-copy-btn").addEventListener("click", async () => {
+        const cmd = buildCurlCommand(lastRequestParams);
+        if (!cmd) {
+            showToast("Zuerst einen Request senden");
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(cmd);
+            showToast("curl-Befehl kopiert", false);
+        } catch {
+            showToast("Kopieren nicht möglich (Clipboard-Zugriff verweigert)");
+        }
+    });
+
+    // --- Header-Tabelle filtern ---
+
+    document.getElementById("headers-filter").addEventListener("input", (event) => {
+        const query = event.target.value.toLowerCase();
+        const rows = document.querySelectorAll("#headers-table tr");
+        rows.forEach((row, index) => {
+            if (index === 0) return;
+            row.hidden = query.length > 0 && !row.textContent.toLowerCase().includes(query);
+        });
+    });
+
+    // --- Init: History & Persistenz ---
+
+    wireHistory("url", "url-history", "httptester:url-history");
+    wireHistory("hostname", "hostname-history", "httptester:hostname-history");
+
+    restoreChainForm();
+    CHAIN_FIELD_IDS.forEach((id) => {
+        document.getElementById(id).addEventListener("input", persistChainForm);
     });
 })();
