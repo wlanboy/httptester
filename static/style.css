@@ -260,6 +260,17 @@ button:disabled {
     to { transform: rotate(360deg); }
 }
 
+.btn-group {
+    display: inline-flex;
+    gap: 0.4rem;
+}
+
+#headers-filter {
+    margin-bottom: 0.7rem;
+    font-size: 0.82rem;
+    padding: 0.5rem 0.7rem;
+}
+
 .copy-btn {
     appearance: none;
     border: 1px solid var(--panel-border);
@@ -457,4 +468,8 @@ td:nth-child(2) {
 
 .toast.toast-error {
     border-color: color-mix(in srgb, var(--err) 45%, var(--panel-border));
+}
+
+.toast.toast-success {
+    border-color: color-mix(in srgb, var(--ok) 45%, var(--panel-border));
 }
