@@ -39,7 +39,8 @@
                 <form id="request-form">
                     <div class="field">
                         <label for="url">URL</label>
-                        <input type="text" id="url" name="url" placeholder="https://example.com" required>
+                        <input type="text" id="url" name="url" placeholder="https://example.com" list="url-history" autocomplete="off" required>
+                        <datalist id="url-history"></datalist>
                     </div>
                     <div class="row">
                         <div class="field">
@@ -73,11 +74,26 @@
             <section id="request-result" hidden>
                 <h2>
                     Response
-                    <button type="button" class="copy-btn" data-copy-target="response-body">Kopieren</button>
+                    <span class="btn-group">
+                        <button type="button" class="copy-btn" id="curl-copy-btn">Als curl</button>
+                        <button type="button" class="copy-btn" data-copy-target="response-body">Kopieren</button>
+                    </span>
                 </h2>
                 <textarea id="response-body" rows="10" readonly></textarea>
+                <div id="redirects-section" hidden>
+                    <h2 class="headers-heading">Redirects</h2>
+                    <table id="redirects-table">
+                        <tr>
+                            <th>#</th>
+                            <th>Status</th>
+                            <th>Von</th>
+                            <th>Nach</th>
+                        </tr>
+                    </table>
+                </div>
                 <div id="headers-section" hidden>
                     <h2 class="headers-heading">Headers</h2>
+                    <input type="text" id="headers-filter" placeholder="Header filtern&hellip;">
                     <table id="headers-table">
                         <tr>
                             <th>Key</th>
@@ -94,7 +110,8 @@
                 <form id="resolve-form">
                     <div class="field">
                         <label for="hostname">Hostname</label>
-                        <input type="text" id="hostname" name="hostname" placeholder="service.namespace.svc.cluster.local" required>
+                        <input type="text" id="hostname" name="hostname" placeholder="service.namespace.svc.cluster.local" list="hostname-history" autocomplete="off" required>
+                        <datalist id="hostname-history"></datalist>
                     </div>
                     <button type="submit">
                         <span class="btn-label">Senden</span>
