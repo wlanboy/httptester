@@ -18,9 +18,13 @@ DNS_TIMEOUT = 5.0
 MIN_REQUEST_TIMEOUT = 0.1
 MAX_REQUEST_TIMEOUT = 30.0
 ALLOWED_METHODS = {"GET", "POST", "PUT", "DELETE", "HEAD", "PATCH", "OPTIONS"}
+MAX_REPEAT_COUNT = 20
 
 def clamp_timeout(value: float) -> float:
     return max(MIN_REQUEST_TIMEOUT, min(value, MAX_REQUEST_TIMEOUT))
+
+def clamp_count(value: int) -> int:
+    return max(1, min(value, MAX_REPEAT_COUNT))
 
 async def try_or_message[T](
     work: Callable[[], Awaitable[T]],
@@ -108,29 +112,110 @@ async def post_request(data: RequestIn):
     )
     return RequestOut(response=response_text, headers=response_headers, redirects=redirects)
 
+class RepeatIn(BaseModel):
+    url: str
+    method: str = "GET"
+    timeout: float = 5.0
+    headers: str = ""
+    count: int = 5
+
+    @field_validator("timeout", mode="before")
+    @classmethod
+    def _coerce_timeout(cls, v: object) -> float:
+        try:
+            return float(v)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return 5.0
+
+    @field_validator("count", mode="before")
+    @classmethod
+    def _coerce_count(cls, v: object) -> int:
+        try:
+            return int(v)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return 5
+
+class RepeatAttempt(BaseModel):
+    attempt: int
+    status_code: int | None = None
+    duration_ms: float | None = None
+    error: str | None = None
+
+class RepeatStats(BaseModel):
+    count: int
+    success_count: int
+    min_ms: float | None = None
+    avg_ms: float | None = None
+    max_ms: float | None = None
+
+class RepeatOut(BaseModel):
+    stats: RepeatStats
+    attempts: list[RepeatAttempt]
+
+@app.post("/api/repeat", response_model=RepeatOut)
+async def repeat_request(data: RepeatIn):
+    method = data.method.upper() if data.method.upper() in ALLOWED_METHODS else "GET"
+    timeout_value = clamp_timeout(data.timeout)
+    count = clamp_count(data.count)
+    parsed_headers = parse_headers(data.headers)
+
+    attempts: list[RepeatAttempt] = []
+    for i in range(1, count + 1):
+        start = time.monotonic()
+        try:
+            res = await asyncio.to_thread(requests.request, method, data.url, headers=parsed_headers, timeout=timeout_value)
+            attempts.append(RepeatAttempt(
+                attempt=i,
+                status_code=res.status_code,
+                duration_ms=round((time.monotonic() - start) * 1000, 1),
+            ))
+        except requests.exceptions.RequestException as e:
+            attempts.append(RepeatAttempt(
+                attempt=i,
+                duration_ms=round((time.monotonic() - start) * 1000, 1),
+                error=str(e),
+            ))
+
+    durations = [a.duration_ms for a in attempts if a.duration_ms is not None]
+    success_count = sum(1 for a in attempts if a.status_code is not None and a.status_code < 400)
+    stats = RepeatStats(
+        count=count,
+        success_count=success_count,
+        min_ms=min(durations) if durations else None,
+        avg_ms=round(sum(durations) / len(durations), 1) if durations else None,
+        max_ms=max(durations) if durations else None,
+    )
+    return RepeatOut(stats=stats, attempts=attempts)
+
 class ResolveIn(BaseModel):
     hostname: str
 
 class ResolveOut(BaseModel):
     result: str
+    addresses: list[str] = []
 
 @app.post("/api/resolve", response_model=ResolveOut)
 async def resolve_hostname(data: ResolveIn):
-    async def work() -> str:
-        ip_address = await asyncio.wait_for(
-            asyncio.to_thread(socket.gethostbyname, data.hostname), timeout=DNS_TIMEOUT
+    async def work() -> tuple[str, list[str]]:
+        infos = await asyncio.wait_for(
+            asyncio.to_thread(socket.getaddrinfo, data.hostname, None), timeout=DNS_TIMEOUT
         )
-        return f"Hostname: {data.hostname} IP-Adresse: {ip_address}"
+        addresses = []
+        for _family, _type, _proto, _canonname, sockaddr in infos:
+            ip = sockaddr[0]
+            if ip not in addresses:
+                addresses.append(ip)
+        return f"Hostname: {data.hostname} IP-Adressen: {', '.join(addresses)}", addresses
 
-    result = await try_or_message(
+    result, addresses = await try_or_message(
         work,
         handlers=[
-            (TimeoutError, lambda e: f"Timeout beim Auflösen des Hostnamens '{data.hostname}' nach {DNS_TIMEOUT}s"),
-            (socket.gaierror, lambda e: f"Fehler beim Auflösen des Hostnamens '{data.hostname}': {e}"),
+            (TimeoutError, lambda e: (f"Timeout beim Auflösen des Hostnamens '{data.hostname}' nach {DNS_TIMEOUT}s", [])),
+            (socket.gaierror, lambda e: (f"Fehler beim Auflösen des Hostnamens '{data.hostname}': {e}", [])),
         ],
-        default=lambda e: f"Ein unerwarteter Fehler ist aufgetreten: {e}",
+        default=lambda e: (f"Ein unerwarteter Fehler ist aufgetreten: {e}", []),
     )
-    return ResolveOut(result=result)
+    return ResolveOut(result=result, addresses=addresses)
 
 class BodyData(BaseModel):
     message: str

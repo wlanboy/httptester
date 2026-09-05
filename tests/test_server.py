@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from server import (
     MAX_CHAIN_HOPS,
+    MAX_REPEAT_COUNT,
     MAX_REQUEST_TIMEOUT,
     MIN_REQUEST_TIMEOUT,
     clamp_timeout,
@@ -149,33 +150,98 @@ def test_post_request_headers_are_parsed_and_forwarded():
     assert kwargs["headers"] == {"X-Test": "abc", "X-Other": "1"}
 
 
+# --- /api/repeat ---
+
+def test_repeat_request_success_stats():
+    mock_response = MagicMock(status_code=200)
+    with patch("server.requests.request", return_value=mock_response) as mock_request:
+        res = client.post("/api/repeat", json={"url": "http://example.local", "count": 3})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["stats"]["count"] == 3
+    assert body["stats"]["success_count"] == 3
+    assert len(body["attempts"]) == 3
+    assert all(a["status_code"] == 200 for a in body["attempts"])
+    assert body["stats"]["min_ms"] is not None
+    assert mock_request.call_count == 3
+
+def test_repeat_request_count_is_clamped():
+    mock_response = MagicMock(status_code=200)
+    with patch("server.requests.request", return_value=mock_response) as mock_request:
+        res = client.post("/api/repeat", json={"url": "http://example.local", "count": MAX_REPEAT_COUNT + 50})
+    body = res.json()
+    assert body["stats"]["count"] == MAX_REPEAT_COUNT
+    assert mock_request.call_count == MAX_REPEAT_COUNT
+
+def test_repeat_request_zero_or_negative_count_clamped_to_one():
+    mock_response = MagicMock(status_code=200)
+    with patch("server.requests.request", return_value=mock_response):
+        res = client.post("/api/repeat", json={"url": "http://example.local", "count": 0})
+    assert res.json()["stats"]["count"] == 1
+
+def test_repeat_request_mixed_failures():
+    responses = [MagicMock(status_code=200), requests.exceptions.ConnectionError("refused")]
+    with patch("server.requests.request", side_effect=responses):
+        res = client.post("/api/repeat", json={"url": "http://example.local", "count": 2})
+    body = res.json()
+    assert body["stats"]["success_count"] == 1
+    assert body["attempts"][0]["status_code"] == 200
+    assert body["attempts"][1]["error"] == "refused"
+
+def test_repeat_request_invalid_count_defaults_to_5():
+    mock_response = MagicMock(status_code=200)
+    with patch("server.requests.request", return_value=mock_response) as mock_request:
+        res = client.post("/api/repeat", json={"url": "http://example.local", "count": "not-a-number"})
+    assert res.json()["stats"]["count"] == 5
+    assert mock_request.call_count == 5
+
+
 # --- /api/resolve ---
 
 def test_resolve_hostname_success():
-    with patch("server.socket.gethostbyname", return_value="127.0.0.1"):
+    import socket
+    addrinfo = [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 0))]
+    with patch("server.socket.getaddrinfo", return_value=addrinfo):
         res = client.post("/api/resolve", json={"hostname": "localhost"})
     assert res.status_code == 200
-    assert "127.0.0.1" in res.json()["result"]
+    body = res.json()
+    assert "127.0.0.1" in body["result"]
+    assert body["addresses"] == ["127.0.0.1"]
+
+def test_resolve_hostname_multiple_addresses_deduplicated():
+    import socket
+    addrinfo = [
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.1", 0)),
+        (socket.AF_INET, socket.SOCK_DGRAM, 17, "", ("10.0.0.1", 0)),
+        (socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("fe80::1", 0, 0, 0)),
+        (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.2", 0)),
+    ]
+    with patch("server.socket.getaddrinfo", return_value=addrinfo):
+        res = client.post("/api/resolve", json={"hostname": "headless.svc.cluster.local"})
+    body = res.json()
+    assert body["addresses"] == ["10.0.0.1", "fe80::1", "10.0.0.2"]
 
 def test_resolve_hostname_gaierror():
     import socket
-    with patch("server.socket.gethostbyname", side_effect=socket.gaierror("not found")):
+    with patch("server.socket.getaddrinfo", side_effect=socket.gaierror("not found")):
         res = client.post("/api/resolve", json={"hostname": "nonexistent.invalid"})
     assert res.status_code == 200
-    assert "Fehler" in res.json()["result"]
+    body = res.json()
+    assert "Fehler" in body["result"]
+    assert body["addresses"] == []
 
 def test_resolve_hostname_timeout():
-    def slow_gethostbyname(hostname):
+    def slow_getaddrinfo(hostname, port):
         time.sleep(0.2)
-        return "127.0.0.1"
+        return []
 
-    with patch("server.DNS_TIMEOUT", 0.05), patch("server.socket.gethostbyname", side_effect=slow_gethostbyname):
+    with patch("server.DNS_TIMEOUT", 0.05), patch("server.socket.getaddrinfo", side_effect=slow_getaddrinfo):
         res = client.post("/api/resolve", json={"hostname": "slow.invalid"})
     assert res.status_code == 200
     assert "Timeout" in res.json()["result"]
 
 def test_resolve_hostname_unexpected_exception():
-    with patch("server.socket.gethostbyname", side_effect=RuntimeError("boom")):
+    with patch("server.socket.getaddrinfo", side_effect=RuntimeError("boom")):
         res = client.post("/api/resolve", json={"hostname": "example.local"})
     assert res.status_code == 200
     assert "unerwarteter Fehler" in res.json()["result"]
