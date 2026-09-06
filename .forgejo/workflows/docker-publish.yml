@@ -1,0 +1,32 @@
+name: Docker Publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-and-publish:
+    # Adjust the label to whatever your Forgejo runner is registered with
+    # (Settings -> Actions -> Runners). Needs a working `docker` CLI.
+    runs-on: docker
+
+    env:
+      IMAGE: registry.gmk.lan/wlanboy/http-tester:latest
+
+    steps:
+      - uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Log in to registry
+        if: ${{ secrets.REGISTRY_USER != '' }}
+        run: echo "${{ secrets.REGISTRY_PASSWORD }}" | docker login registry.gmk.lan -u "${{ secrets.REGISTRY_USER }}" --password-stdin
+
+      - name: Build image
+        run: docker build -t "$IMAGE" .
+
+      - name: Push image
+        run: docker push "$IMAGE"
+
+      - name: Log out of registry
+        if: ${{ secrets.REGISTRY_USER != '' }}
+        run: docker logout registry.gmk.lan
