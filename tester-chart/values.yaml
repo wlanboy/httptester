@@ -8,6 +8,26 @@ image:
 service:
   port: 5000
 
+# /api/repeat kann bis zu 20 x 30s laufen; laufende Requests bekommen bis zu
+# dieser Zeit, bevor der Pod hart beendet wird
+terminationGracePeriodSeconds: 60
+
+# Pod-Ebene: nur Werte, die auch für die von Istio injizierten Container
+# (istio-init läuft als root) passen
+podSecurityContext:
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
 ingress:
   # traefik | istio | none
   controller: istio
