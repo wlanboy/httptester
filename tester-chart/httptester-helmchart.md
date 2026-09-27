@@ -17,8 +17,8 @@ gesteuert über den Schalter `ingress.controller`.
 
 Das Chart rendert folgende Kubernetes-Ressourcen:
 
-- **Deployment** (`templates/deployment.yaml`) – 1 Replica des Containers `wlanboy/http-tester`, mit Liveness- und Readiness-Probe auf `/healthz`.
-- **Service** (`templates/service.yaml`) – ClusterIP-Service, leitet Traffic an die Pods weiter.
+- **Deployment** (`templates/deployment.yaml`) – 1 Replica des Containers `wlanboy/http-tester`, mit Liveness- und Readiness-Probe auf `/healthz`. Der Container läuft als uid/gid 1000 ohne Capabilities, ohne Privilege Escalation und mit read-only Root-Dateisystem (`/tmp` ist ein `emptyDir`).
+- **Service** (`templates/service.yaml`) – ClusterIP-Service mit dem Port-Namen `http` und `appProtocol: http`, damit Istio das Protokoll nicht raten muss.
 - **Gateway** (`templates/gateway.yaml`, nur bei `ingress.controller: istio`) – Istio `Gateway` auf Port 80/HTTP für die konfigurierten Hosts.
 - **VirtualService** (`templates/virtualservice.yaml`, nur bei `ingress.controller: istio`) – Istio `VirtualService`, routet `/`-Traffic vom Gateway (und dem internen `mesh`-Gateway) zum Service.
 - **IngressRoute** (`templates/traefik-ingressroute.yaml`, nur bei `ingress.controller: traefik`) – Traefik `IngressRoute`, routet die konfigurierten Hosts direkt zum Service.
@@ -39,6 +39,9 @@ fehlen.
 | `image.repository` | Container-Image-Repository | `wlanboy/http-tester` |
 | `image.tag` | Image-Tag | `latest` |
 | `service.port` | Container- und Service-Port (auch für Health-Checks) | `5000` |
+| `terminationGracePeriodSeconds` | Zeit für laufende Requests beim Beenden des Pods | `60` |
+| `podSecurityContext` | Pod-`securityContext`; nur Werte, die auch für die injizierten Istio-Container passen | `seccompProfile: RuntimeDefault` |
+| `securityContext` | Container-`securityContext` der App | non-root (1000), read-only Root-FS, `drop: [ALL]` |
 | `ingress.controller` | Aktiver Ingress-Weg: `istio`, `traefik` oder `none` | `istio` |
 | `ingress.hosts` | Liste externer Hostnamen für den Ingress (gilt für beide Controller) | `httptester.tp.lan`, `httptester.gmk.lan`, `httptester.big.lan`, `httptester.localhost` |
 | `istio.gateway.selector` | Selector für das Istio Ingress-Gateway | `istio: ingressgateway` |
