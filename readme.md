@@ -72,8 +72,8 @@ uv run pyright .
 | Method | Path            | Beschreibung                                          |
 |--------|-----------------|--------------------------------------------------------|
 | GET    | `/`             | Statische Web-UI (`static/index.html`)                 |
-| POST   | `/api/request`  | JSON-API: Request gegen `url` (Methode, Timeout, Header konfigurierbar); liefert Response, Headers und die durchlaufene Redirect-Kette (`redirects`) |
-| POST   | `/api/repeat`   | JSON-API: wiederholt denselben Request `count`-mal (max. 20, siehe `MAX_REPEAT_COUNT`) und liefert Latenz-Statistik (`stats`: min/avg/max ms, success_count) plus Einzel-Ergebnisse (`attempts`) |
+| POST   | `/api/request`  | JSON-API: Request gegen `url` (Methode, Timeout, Header, `verify_tls` konfigurierbar); liefert `status_code`, `duration_ms`, Response-Body (max. 1 MiB, sonst `truncated: true`), Headers und die durchlaufene Redirect-Kette (`redirects`) |
+| POST   | `/api/repeat`   | JSON-API: wiederholt denselben Request `count`-mal (max. 20, siehe `MAX_REPEAT_COUNT`) und liefert Latenz-Statistik (`stats`: min/avg/max ms nur über Versuche mit HTTP-Antwort, success_count) plus Einzel-Ergebnisse (`attempts`) |
 | POST   | `/api/resolve`  | JSON-API: Löst einen `hostname` per DNS auf, liefert alle A-/AAAA-Adressen (`addresses`) |
 | POST   | `/postbody`     | Echoed einen JSON-Body zurück (`message`, `value`)     |
 | GET    | `/healthz`      | Liveness-/Readiness-Check, liefert `{"status": "ok"}`  |
@@ -121,8 +121,9 @@ kubectl set image deployment/tester 'wlanboy/http-tester:latest' -n demo
 ### Helm chart
 
 Das Chart in [`tester-chart`](tester-chart) deployt `Deployment` + `Service`
-mit Liveness-/Readiness-Probes auf `/healthz` sowie optional (per
-`ingress.enabled`) ein Istio `Gateway`/`VirtualService`. `deploymentName` und
+mit Liveness-/Readiness-Probes auf `/healthz` sowie – je nach
+`ingress.controller` (`istio` | `traefik` | `none`) – ein Istio
+`Gateway`/`VirtualService` oder eine Traefik `IngressRoute`. `deploymentName` und
 `namespace` sind vollständig parametrisiert, das Chart lässt sich also
 mehrfach mit unterschiedlichem Release-Namen installieren – z. B. um mehrere
 Instanzen für einen Chain-Test aufzusetzen.
@@ -142,25 +143,25 @@ eigenem `deploymentName`. Nur die erste Instanz braucht ein Gateway als
 Eingang von außen, die anderen beiden sind rein mesh-intern erreichbar:
 
 ```bash
-kubectl create namespace ns1
+kubectl create namespace ns1 --dry-run=client -o yaml | kubectl apply -f -
 kubectl label namespace ns1 istio-injection=enabled --overwrite
 helm upgrade --install tester1 ./tester-chart \
   --namespace ns1 \
   --set deploymentName=tester1 --set namespace=ns1
 
-kubectl create namespace ns2
+kubectl create namespace ns2 --dry-run=client -o yaml | kubectl apply -f -
 kubectl label namespace ns2 istio-injection=enabled --overwrite
 helm upgrade --install tester2 ./tester-chart \
   --namespace ns2 \
   --set deploymentName=tester2 --set namespace=ns2 \
-  --set ingress.enabled=false
+  --set ingress.controller=none
 
-kubectl create namespace ns3
+kubectl create namespace ns3 --dry-run=client -o yaml | kubectl apply -f -
 kubectl label namespace ns3 istio-injection=enabled --overwrite
 helm upgrade --install tester3 ./tester-chart \
   --namespace ns3 \
   --set deploymentName=tester3 --set namespace=ns3 \
-  --set ingress.enabled=false
+  --set ingress.controller=none
 ```
 
 Damit ergibt sich folgende Kette:
@@ -213,6 +214,11 @@ oder über den Tab "Chain" in der Web-UI von `tester1` (eine URL pro Zeile:
 Dauer in ms, ggf. Fehlermeldung) – so lässt sich genau sehen, an welcher
 Namespace-Grenze eine AuthorizationPolicy, NetworkPolicy oder ein fehlendes
 `ServiceEntry` die Kette unterbricht.
+
+`timeout` gilt pro Hop. Jeder Hop wartet auf seinen Nachfolger so lange, wie
+die restliche Kette maximal brauchen darf (`timeout` × verbleibende Hops).
+Dadurch meldet bei einem hängenden Ziel der Hop davor den Timeout und nicht
+der erste Hop der Kette.
 
 ## test calls
 
