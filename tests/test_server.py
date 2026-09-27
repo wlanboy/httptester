@@ -9,13 +9,21 @@ from server import (
     MAX_CHAIN_HOPS,
     MAX_REPEAT_COUNT,
     MAX_REQUEST_TIMEOUT,
+    MAX_RESPONSE_BYTES,
     MIN_REQUEST_TIMEOUT,
     clamp_timeout,
+    decode_body,
     parse_headers,
 )
 from server import app as fastapi_app
 
 client = TestClient(fastapi_app)
+
+
+def fake_response(status_code=200, body=b"", headers=None, history=None, encoding="utf-8"):
+    res = MagicMock(status_code=status_code, headers=headers or {}, history=history or [], encoding=encoding)
+    res.iter_content.return_value = [body] if body else []
+    return res
 
 
 # --- clamp_timeout ---
@@ -79,24 +87,50 @@ def test_get_home():
 # --- /api/request ---
 
 def test_post_request_success():
-    mock_response = MagicMock()
-    mock_response.text = "hello world"
-    mock_response.headers = {"Content-Type": "text/plain"}
-    mock_response.history = []
+    mock_response = fake_response(body=b"hello world", headers={"Content-Type": "text/plain"})
     with patch("server.requests.request", return_value=mock_response) as mock_request:
         res = client.post("/api/request", json={"url": "http://example.local"})
     assert res.status_code == 200
     body = res.json()
     assert body["response"] == "hello world"
+    assert body["status_code"] == 200
+    assert body["duration_ms"] is not None
+    assert body["truncated"] is False
     assert body["headers"] == {"Content-Type": "text/plain"}
     assert body["redirects"] == []
-    args, _kwargs = mock_request.call_args
+    args, kwargs = mock_request.call_args
     assert args[0] == "GET"
     assert args[1] == "http://example.local"
+    assert kwargs["verify"] is True
+    mock_response.close.assert_called_once()
+
+def test_post_request_returns_error_status_code():
+    with patch("server.requests.request", return_value=fake_response(status_code=404, body=b"nope")):
+        res = client.post("/api/request", json={"url": "http://example.local/missing"})
+    body = res.json()
+    assert body["status_code"] == 404
+    assert body["response"] == "nope"
+
+def test_post_request_verify_tls_false_is_forwarded():
+    with patch("server.requests.request", return_value=fake_response()) as mock_request:
+        client.post("/api/request", json={"url": "https://example.local", "verify_tls": False})
+    _, kwargs = mock_request.call_args
+    assert kwargs["verify"] is False
+
+def test_post_request_large_body_is_truncated():
+    big = b"x" * (MAX_RESPONSE_BYTES + 10)
+    with patch("server.requests.request", return_value=fake_response(body=big)):
+        res = client.post("/api/request", json={"url": "http://example.local/big"})
+    body = res.json()
+    assert body["truncated"] is True
+    assert len(body["response"]) == MAX_RESPONSE_BYTES
+
+def test_decode_body_unknown_encoding_falls_back_to_utf8():
+    assert decode_body("ä".encode(), "no-such-charset") == "ä"
 
 def test_post_request_follows_redirects():
     hop = MagicMock(status_code=301, url="http://example.local", headers={"Location": "http://example.local/new"})
-    mock_response = MagicMock(text="ok", headers={}, history=[hop])
+    mock_response = fake_response(body=b"ok", history=[hop])
     with patch("server.requests.request", return_value=mock_response):
         res = client.post("/api/request", json={"url": "http://example.local"})
     body = res.json()
@@ -105,14 +139,14 @@ def test_post_request_follows_redirects():
     ]
 
 def test_post_request_invalid_method_falls_back_to_get():
-    mock_response = MagicMock(text="ok", headers={}, history=[])
+    mock_response = fake_response(body=b"ok")
     with patch("server.requests.request", return_value=mock_response) as mock_request:
         client.post("/api/request", json={"url": "http://example.local", "method": "TRACE"})
     args, _ = mock_request.call_args
     assert args[0] == "GET"
 
 def test_post_request_method_is_uppercased():
-    mock_response = MagicMock(text="ok", headers={}, history=[])
+    mock_response = fake_response(body=b"ok")
     with patch("server.requests.request", return_value=mock_response) as mock_request:
         client.post("/api/request", json={"url": "http://example.local", "method": "post"})
     args, _ = mock_request.call_args
@@ -120,9 +154,9 @@ def test_post_request_method_is_uppercased():
 
 def test_post_request_invalid_timeout_defaults_to_5():
     captured = {}
-    def fake_request(method, url, headers, timeout):
-        captured["timeout"] = timeout
-        return MagicMock(text="ok", headers={}, history=[])
+    def fake_request(method, url, **kwargs):
+        captured["timeout"] = kwargs["timeout"]
+        return fake_response(body=b"ok")
     with patch("server.requests.request", side_effect=fake_request):
         client.post("/api/request", json={"url": "http://example.local", "timeout": "not-a-number"})
     assert captured["timeout"] == 5.0
@@ -140,7 +174,7 @@ def test_post_request_generic_exception():
     assert "Fehler" in res.json()["response"]
 
 def test_post_request_headers_are_parsed_and_forwarded():
-    mock_response = MagicMock(text="ok", headers={}, history=[])
+    mock_response = fake_response(body=b"ok")
     with patch("server.requests.request", return_value=mock_response) as mock_request:
         client.post(
             "/api/request",
@@ -153,7 +187,7 @@ def test_post_request_headers_are_parsed_and_forwarded():
 # --- /api/repeat ---
 
 def test_repeat_request_success_stats():
-    mock_response = MagicMock(status_code=200)
+    mock_response = fake_response()
     with patch("server.requests.request", return_value=mock_response) as mock_request:
         res = client.post("/api/repeat", json={"url": "http://example.local", "count": 3})
     assert res.status_code == 200
@@ -166,7 +200,7 @@ def test_repeat_request_success_stats():
     assert mock_request.call_count == 3
 
 def test_repeat_request_count_is_clamped():
-    mock_response = MagicMock(status_code=200)
+    mock_response = fake_response()
     with patch("server.requests.request", return_value=mock_response) as mock_request:
         res = client.post("/api/repeat", json={"url": "http://example.local", "count": MAX_REPEAT_COUNT + 50})
     body = res.json()
@@ -174,13 +208,13 @@ def test_repeat_request_count_is_clamped():
     assert mock_request.call_count == MAX_REPEAT_COUNT
 
 def test_repeat_request_zero_or_negative_count_clamped_to_one():
-    mock_response = MagicMock(status_code=200)
+    mock_response = fake_response()
     with patch("server.requests.request", return_value=mock_response):
         res = client.post("/api/repeat", json={"url": "http://example.local", "count": 0})
     assert res.json()["stats"]["count"] == 1
 
 def test_repeat_request_mixed_failures():
-    responses = [MagicMock(status_code=200), requests.exceptions.ConnectionError("refused")]
+    responses = [fake_response(), requests.exceptions.ConnectionError("refused")]
     with patch("server.requests.request", side_effect=responses):
         res = client.post("/api/repeat", json={"url": "http://example.local", "count": 2})
     body = res.json()
@@ -188,8 +222,30 @@ def test_repeat_request_mixed_failures():
     assert body["attempts"][0]["status_code"] == 200
     assert body["attempts"][1]["error"] == "refused"
 
+def test_repeat_request_stats_ignore_failed_attempts():
+    def slow_ok(*args, **kwargs):
+        time.sleep(0.05)
+        return fake_response()
+    responses = iter([slow_ok, requests.exceptions.ConnectionError("refused")])
+    def side_effect(*args, **kwargs):
+        item = next(responses)
+        if isinstance(item, Exception):
+            raise item
+        return item(*args, **kwargs)
+    with patch("server.requests.request", side_effect=side_effect):
+        res = client.post("/api/repeat", json={"url": "http://example.local", "count": 2})
+    stats = res.json()["stats"]
+    assert stats["min_ms"] == stats["max_ms"] == stats["avg_ms"]
+    assert stats["min_ms"] >= 50
+
+def test_repeat_request_verify_tls_false_is_forwarded():
+    with patch("server.requests.request", return_value=fake_response()) as mock_request:
+        client.post("/api/repeat", json={"url": "https://example.local", "count": 1, "verify_tls": False})
+    _, kwargs = mock_request.call_args
+    assert kwargs["verify"] is False
+
 def test_repeat_request_invalid_count_defaults_to_5():
-    mock_response = MagicMock(status_code=200)
+    mock_response = fake_response()
     with patch("server.requests.request", return_value=mock_response) as mock_request:
         res = client.post("/api/repeat", json={"url": "http://example.local", "count": "not-a-number"})
     assert res.json()["stats"]["count"] == 5
@@ -244,7 +300,7 @@ def test_resolve_hostname_unexpected_exception():
     with patch("server.socket.getaddrinfo", side_effect=RuntimeError("boom")):
         res = client.post("/api/resolve", json={"hostname": "example.local"})
     assert res.status_code == 200
-    assert "unerwarteter Fehler" in res.json()["result"]
+    assert "Fehler (unerwartet)" in res.json()["result"]
 
 
 # --- /postbody ---
@@ -306,3 +362,31 @@ def test_chain_hop_unreachable():
     assert body["final_status"] == 502
     assert len(body["path"]) == 1
     assert "refused" in body["path"][0]["error"]
+
+def test_chain_hop_returns_json_array():
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = [1, 2]
+    with patch("server.requests.post", return_value=mock_response):
+        res = client.post("/chain", json={"chain": ["http://127.0.0.1:5091"]})
+    assert res.status_code == 200
+    body = res.json()
+    assert body["final_status"] == 502
+    assert "kein JSON-Objekt" in body["path"][0]["error"]
+
+def test_chain_hop_returns_malformed_path():
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {"final_status": 200, "path": ["kaputt"]}
+    with patch("server.requests.post", return_value=mock_response):
+        res = client.post("/chain", json={"chain": ["http://127.0.0.1:5091"]})
+    body = res.json()
+    assert body["final_status"] == 502
+    assert "path-Format" in body["path"][0]["error"]
+
+def test_chain_read_timeout_covers_remaining_hops():
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {"final_status": 200, "path": []}
+    with patch("server.requests.post", return_value=mock_response) as mock_post:
+        client.post("/chain", json={"chain": ["http://a", "http://b", "http://c"], "timeout": 2})
+    _, kwargs = mock_post.call_args
+    assert kwargs["timeout"] == (2.0, 6.0)
+    assert kwargs["json"]["timeout"] == 2.0

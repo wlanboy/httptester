@@ -4,27 +4,72 @@ import socket
 import time
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
+from pathlib import Path
 
 import requests
+import urllib3
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ValidationError, field_validator
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# verify_tls=false ist eine bewusste Entscheidung des Nutzers, keine Warnung pro Request loggen
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 DNS_TIMEOUT = 5.0
 MIN_REQUEST_TIMEOUT = 0.1
 MAX_REQUEST_TIMEOUT = 30.0
 ALLOWED_METHODS = {"GET", "POST", "PUT", "DELETE", "HEAD", "PATCH", "OPTIONS"}
 MAX_REPEAT_COUNT = 20
+MAX_RESPONSE_BYTES = 1024 * 1024
+MAX_CHAIN_HOPS = 20
+CHAIN_TIMEOUT_DEFAULT = 5.0
 
 def clamp_timeout(value: float) -> float:
     return max(MIN_REQUEST_TIMEOUT, min(value, MAX_REQUEST_TIMEOUT))
 
 def clamp_count(value: int) -> int:
     return max(1, min(value, MAX_REPEAT_COUNT))
+
+def elapsed_ms(start: float) -> float:
+    return round((time.monotonic() - start) * 1000, 1)
+
+@dataclass
+class Fetched:
+    response: requests.Response
+    body: bytes
+    truncated: bool
+    duration_ms: float
+
+def read_limited(res: requests.Response, limit: int) -> tuple[bytes, bool]:
+    buf = bytearray()
+    for chunk in res.iter_content(chunk_size=64 * 1024):
+        buf += chunk
+        if len(buf) > limit:
+            return bytes(buf[:limit]), True
+    return bytes(buf), False
+
+def decode_body(body: bytes, encoding: str | None) -> str:
+    try:
+        return body.decode(encoding or "utf-8", errors="replace")
+    except LookupError:
+        return body.decode("utf-8", errors="replace")
+
+def fetch(method: str, url: str, *, headers: dict[str, str], timeout: float, verify: bool) -> Fetched:
+    """Blockierender Request; liest den Body höchstens bis MAX_RESPONSE_BYTES, damit große Downloads den Pod nicht sprengen."""
+    start = time.monotonic()
+    res = requests.request(method, url, headers=headers, timeout=timeout, verify=verify, stream=True)
+    try:
+        body, truncated = read_limited(res, MAX_RESPONSE_BYTES)
+    finally:
+        res.close()
+    return Fetched(response=res, body=body, truncated=truncated, duration_ms=elapsed_ms(start))
 
 async def try_or_message[T](
     work: Callable[[], Awaitable[T]],
@@ -46,7 +91,7 @@ async def lifespan(app: FastAPI):
     logger.info("Shutdown event received. Shutting down gracefully...")
 
 app = FastAPI(lifespan=lifespan)
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 @app.get("/healthz")
 async def healthz():
@@ -54,7 +99,7 @@ async def healthz():
 
 @app.get("/")
 async def get_home():
-    return FileResponse("static/index.html")
+    return FileResponse(STATIC_DIR / "index.html")
 
 def parse_headers(raw: str) -> dict[str, str]:
     headers = {}
@@ -71,6 +116,13 @@ class RequestIn(BaseModel):
     method: str = "GET"
     timeout: float = 5.0
     headers: str = ""
+    verify_tls: bool = True
+
+    @field_validator("method", mode="before")
+    @classmethod
+    def _normalize_method(cls, v: object) -> str:
+        method = str(v).upper()
+        return method if method in ALLOWED_METHODS else "GET"
 
     @field_validator("timeout", mode="before")
     @classmethod
@@ -87,45 +139,43 @@ class RedirectHop(BaseModel):
 
 class RequestOut(BaseModel):
     response: str
+    status_code: int | None = None
+    duration_ms: float | None = None
+    truncated: bool = False
     headers: dict[str, str] = {}
     redirects: list[RedirectHop] = []
 
 @app.post("/api/request", response_model=RequestOut)
 async def post_request(data: RequestIn):
-    method = data.method.upper() if data.method.upper() in ALLOWED_METHODS else "GET"
     timeout_value = clamp_timeout(data.timeout)
 
-    async def work() -> tuple[str, dict[str, str], list[RedirectHop]]:
-        res = await asyncio.to_thread(
-            requests.request, method, data.url, headers=parse_headers(data.headers), timeout=timeout_value
+    async def work() -> RequestOut:
+        fetched = await asyncio.to_thread(
+            fetch, data.method, data.url,
+            headers=parse_headers(data.headers), timeout=timeout_value, verify=data.verify_tls,
         )
+        res = fetched.response
         redirects = [
             RedirectHop(status_code=hop.status_code, from_url=hop.url, location=hop.headers.get("Location", ""))
             for hop in res.history
         ]
-        return res.text, dict(res.headers), redirects
+        return RequestOut(
+            response=decode_body(fetched.body, res.encoding),
+            status_code=res.status_code,
+            duration_ms=fetched.duration_ms,
+            truncated=fetched.truncated,
+            headers=dict(res.headers),
+            redirects=redirects,
+        )
 
-    response_text, response_headers, redirects = await try_or_message(
+    return await try_or_message(
         work,
-        handlers=[(requests.exceptions.Timeout, lambda e: (f"Timeout: {e}", {}, []))],
-        default=lambda e: (f"Fehler: {e}", {}, []),
+        handlers=[(requests.exceptions.Timeout, lambda e: RequestOut(response=f"Timeout: {e}"))],
+        default=lambda e: RequestOut(response=f"Fehler: {e}"),
     )
-    return RequestOut(response=response_text, headers=response_headers, redirects=redirects)
 
-class RepeatIn(BaseModel):
-    url: str
-    method: str = "GET"
-    timeout: float = 5.0
-    headers: str = ""
+class RepeatIn(RequestIn):
     count: int = 5
-
-    @field_validator("timeout", mode="before")
-    @classmethod
-    def _coerce_timeout(cls, v: object) -> float:
-        try:
-            return float(v)  # type: ignore[arg-type]
-        except (TypeError, ValueError):
-            return 5.0
 
     @field_validator("count", mode="before")
     @classmethod
@@ -154,7 +204,6 @@ class RepeatOut(BaseModel):
 
 @app.post("/api/repeat", response_model=RepeatOut)
 async def repeat_request(data: RepeatIn):
-    method = data.method.upper() if data.method.upper() in ALLOWED_METHODS else "GET"
     timeout_value = clamp_timeout(data.timeout)
     count = clamp_count(data.count)
     parsed_headers = parse_headers(data.headers)
@@ -163,20 +212,23 @@ async def repeat_request(data: RepeatIn):
     for i in range(1, count + 1):
         start = time.monotonic()
         try:
-            res = await asyncio.to_thread(requests.request, method, data.url, headers=parsed_headers, timeout=timeout_value)
+            fetched = await asyncio.to_thread(
+                fetch, data.method, data.url, headers=parsed_headers, timeout=timeout_value, verify=data.verify_tls
+            )
             attempts.append(RepeatAttempt(
                 attempt=i,
-                status_code=res.status_code,
-                duration_ms=round((time.monotonic() - start) * 1000, 1),
+                status_code=fetched.response.status_code,
+                duration_ms=fetched.duration_ms,
             ))
         except requests.exceptions.RequestException as e:
             attempts.append(RepeatAttempt(
                 attempt=i,
-                duration_ms=round((time.monotonic() - start) * 1000, 1),
+                duration_ms=elapsed_ms(start),
                 error=str(e),
             ))
 
-    durations = [a.duration_ms for a in attempts if a.duration_ms is not None]
+    # Latenz nur über Versuche mit HTTP-Antwort: ein sofortiges "connection refused" würde min/avg verfälschen
+    durations = [a.duration_ms for a in attempts if a.status_code is not None and a.duration_ms is not None]
     success_count = sum(1 for a in attempts if a.status_code is not None and a.status_code < 400)
     stats = RepeatStats(
         count=count,
@@ -210,10 +262,10 @@ async def resolve_hostname(data: ResolveIn):
     result, addresses = await try_or_message(
         work,
         handlers=[
-            (TimeoutError, lambda e: (f"Timeout beim Auflösen des Hostnamens '{data.hostname}' nach {DNS_TIMEOUT}s", [])),
-            (socket.gaierror, lambda e: (f"Fehler beim Auflösen des Hostnamens '{data.hostname}': {e}", [])),
+            (TimeoutError, lambda e: (f"Timeout: Hostname '{data.hostname}' nach {DNS_TIMEOUT}s nicht aufgelöst", [])),
+            (socket.gaierror, lambda e: (f"Fehler: Hostname '{data.hostname}' nicht auflösbar: {e}", [])),
         ],
-        default=lambda e: (f"Ein unerwarteter Fehler ist aufgetreten: {e}", []),
+        default=lambda e: (f"Fehler (unerwartet): {e}", []),
     )
     return ResolveOut(result=result, addresses=addresses)
 
@@ -229,9 +281,6 @@ async def post_body(data: BodyData):
         "echo_value": data.value,
         "status": "ok"
     })
-
-MAX_CHAIN_HOPS = 20
-CHAIN_TIMEOUT_DEFAULT = 5.0
 
 class ChainHop(BaseModel):
     target: str
@@ -249,30 +298,49 @@ class ChainResponse(BaseModel):
     final_status: int
     path: list[ChainHop]
 
+class InvalidHopResponse(Exception):
+    pass
+
+def _parse_downstream(res: requests.Response) -> tuple[list[ChainHop], int]:
+    try:
+        body = res.json()
+    except ValueError:
+        raise InvalidHopResponse("Ungültige Antwort (kein JSON)") from None
+    if not isinstance(body, dict):
+        raise InvalidHopResponse("Ungültige Antwort (kein JSON-Objekt)")
+    try:
+        path = [ChainHop.model_validate(h) for h in body.get("path", [])]
+    except (ValidationError, TypeError):
+        raise InvalidHopResponse("Ungültige Antwort (unbekanntes path-Format)") from None
+    final_status = body.get("final_status", res.status_code)
+    return path, final_status if isinstance(final_status, int) else res.status_code
+
 async def _call_next_hop(
     next_url: str, rest: list[str], data: ChainRequest, timeout_value: float
 ) -> tuple[list[ChainHop], int]:
     hop = ChainHop(target=next_url)
     start = time.monotonic()
+    # Der nächste Hop wartet selbst bis zu timeout_value pro Hop auf den Rest der Kette. Ohne das
+    # größere Lese-Budget liefe unser Timeout gleichzeitig ab und der Fehler landete beim falschen Hop.
+    read_timeout = timeout_value * (len(rest) + 1)
     try:
         res = await asyncio.to_thread(
             requests.post,
             f"{next_url.rstrip('/')}/chain",
             json={"message": data.message, "chain": rest, "timeout": timeout_value},
-            timeout=timeout_value,
+            timeout=(timeout_value, read_timeout),
         )
-        hop.duration_ms = round((time.monotonic() - start) * 1000, 1)
+        hop.duration_ms = elapsed_ms(start)
         hop.status_code = res.status_code
         try:
-            downstream = res.json()
-            path = [hop] + [ChainHop(**h) for h in downstream.get("path", [])]
-            final_status = downstream.get("final_status", res.status_code)
-        except ValueError:
-            hop.error = "Ungueltige Antwort (kein JSON)"
+            downstream_path, final_status = _parse_downstream(res)
+            path = [hop] + downstream_path
+        except InvalidHopResponse as e:
+            hop.error = str(e)
             path = [hop]
             final_status = 502
     except (requests.exceptions.RequestException, ValueError) as e:
-        hop.duration_ms = round((time.monotonic() - start) * 1000, 1)
+        hop.duration_ms = elapsed_ms(start)
         hop.error = str(e)
         path = [hop]
         final_status = 502
