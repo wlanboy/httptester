@@ -68,6 +68,12 @@
                         <label for="headers">Header (ein "Key: Value" pro Zeile)</label>
                         <textarea id="headers" name="headers" rows="3" placeholder="X-Test: abc"></textarea>
                     </div>
+                    <div class="field">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="verify_tls" name="verify_tls" checked>
+                            TLS-Zertifikat prüfen (abwählen für selbstsignierte Zertifikate)
+                        </label>
+                    </div>
                     <button type="submit">
                         <span class="btn-label">Senden</span>
                         <span class="spinner" hidden></span>
@@ -83,6 +89,7 @@
                         <button type="button" class="copy-btn" data-copy-target="response-body">Kopieren</button>
                     </span>
                 </h2>
+                <p id="response-status"></p>
                 <textarea id="response-body" rows="10" readonly></textarea>
                 <div id="redirects-section" hidden>
                     <h2 class="headers-heading">Redirects</h2>

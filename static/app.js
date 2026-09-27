@@ -135,6 +135,10 @@
     function renderRequestResult(data) {
         document.getElementById("repeat-result").hidden = true;
         document.getElementById("response-body").value = data.response;
+        document.getElementById("response-status").innerHTML =
+            `Status: ${badge(data.status_code)}` +
+            (data.duration_ms != null ? ` &middot; ${data.duration_ms} ms` : "") +
+            (data.truncated ? " &middot; Body nach 1 MiB abgeschnitten" : "");
 
         const redirects = data.redirects || [];
         const redirectsTable = document.getElementById("redirects-table");
@@ -191,6 +195,7 @@
             method: document.getElementById("method").value,
             timeout: document.getElementById("timeout").value,
             headers: document.getElementById("headers").value,
+            verify_tls: document.getElementById("verify_tls").checked,
         };
         setLoading(form, true);
         try {
@@ -280,6 +285,7 @@
     function buildCurlCommand(params) {
         if (!params || !params.url) return "";
         const parts = ["curl", "-i", "-X", params.method || "GET"];
+        if (params.verify_tls === false) parts.push("-k");
         (params.headers || "")
             .split("\n")
             .map((line) => line.trim())
