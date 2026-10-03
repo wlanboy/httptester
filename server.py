@@ -97,6 +97,10 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 async def healthz():
     return JSONResponse(content={"status": "ok"})
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse(STATIC_DIR / "favicon.svg", media_type="image/svg+xml")
+
 @app.get("/")
 async def get_home():
     return FileResponse(STATIC_DIR / "index.html")
