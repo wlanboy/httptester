@@ -8,11 +8,11 @@ anyio==4.15.1
     # via starlette
 certifi==2026.7.22
     # via requests
-charset-normalizer==3.5.1
+charset-normalizer==3.5.2
     # via requests
 click==8.5.0
     # via uvicorn
-fastapi==0.141.1
+fastapi==0.142.2
     # via httptester (pyproject.toml)
 h11==0.16.0
     # via uvicorn
@@ -20,6 +20,8 @@ idna==3.20
     # via
     #   anyio
     #   requests
+opentelemetry-api==1.45.0
+    # via fastapi
 pydantic==2.13.5
     # via
     #   httptester (pyproject.toml)
@@ -34,6 +36,7 @@ typing-extensions==4.16.0
     # via
     #   anyio
     #   fastapi
+    #   opentelemetry-api
     #   pydantic
     #   pydantic-core
     #   typing-inspection
