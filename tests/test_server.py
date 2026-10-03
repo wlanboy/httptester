@@ -128,6 +128,24 @@ def test_post_request_large_body_is_truncated():
 def test_decode_body_unknown_encoding_falls_back_to_utf8():
     assert decode_body("ä".encode(), "no-such-charset") == "ä"
 
+def test_decode_body_without_charset_prefers_utf8():
+    assert decode_body("ä".encode(), "ISO-8859-1", charset_declared=False) == "ä"
+
+def test_decode_body_without_charset_falls_back_for_non_utf8():
+    assert decode_body("ä".encode("latin-1"), "ISO-8859-1", charset_declared=False) == "ä"
+
+def test_decode_body_without_charset_drops_split_char_when_truncated():
+    assert decode_body("aä".encode()[:-1], "ISO-8859-1", charset_declared=False, truncated=True) == "a"
+
+def test_decode_body_declared_charset_is_respected():
+    assert decode_body("ä".encode("latin-1"), "ISO-8859-1", charset_declared=True) == "ä"
+
+def test_post_request_text_without_charset_is_decoded_as_utf8():
+    mock_response = fake_response(body="äöü".encode(), headers={"Content-Type": "text/html"}, encoding="ISO-8859-1")
+    with patch("server.requests.request", return_value=mock_response):
+        res = client.post("/api/request", json={"url": "http://example.local"})
+    assert res.json()["response"] == "äöü"
+
 def test_post_request_follows_redirects():
     hop = MagicMock(status_code=301, url="http://example.local", headers={"Location": "http://example.local/new"})
     mock_response = fake_response(body=b"ok", history=[hop])
@@ -238,6 +256,13 @@ def test_repeat_request_stats_ignore_failed_attempts():
     assert stats["min_ms"] == stats["max_ms"] == stats["avg_ms"]
     assert stats["min_ms"] >= 50
 
+def test_repeat_request_non_latin1_header_is_reported_as_error():
+    res = client.post("/api/repeat", json={"url": "http://127.0.0.1:1", "headers": "X-Test: €", "count": 1})
+    assert res.status_code == 200
+    attempt = res.json()["attempts"][0]
+    assert attempt["status_code"] is None
+    assert "latin-1" in attempt["error"]
+
 def test_repeat_request_verify_tls_false_is_forwarded():
     with patch("server.requests.request", return_value=fake_response()) as mock_request:
         client.post("/api/repeat", json={"url": "https://example.local", "count": 1, "verify_tls": False})
@@ -332,6 +357,15 @@ def test_chain_too_many_hops():
     assert body["final_status"] == 400
     assert len(body["path"]) == 1
     assert "abgebrochen" in body["path"][0]["error"]
+
+def test_chain_invalid_timeout_defaults_to_5():
+    mock_response = MagicMock(status_code=200)
+    mock_response.json.return_value = {"final_status": 200, "path": []}
+    with patch("server.requests.post", return_value=mock_response) as mock_post:
+        res = client.post("/chain", json={"chain": ["http://127.0.0.1:5091"], "timeout": "not-a-number"})
+    assert res.status_code == 200
+    _, kwargs = mock_post.call_args
+    assert kwargs["timeout"] == (5.0, 5.0)
 
 def test_chain_single_hop_success():
     mock_response = MagicMock()

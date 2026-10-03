@@ -1,4 +1,5 @@
 import asyncio
+import codecs
 import logging
 import socket
 import time
@@ -55,7 +56,14 @@ def read_limited(res: requests.Response, limit: int) -> tuple[bytes, bool]:
             return bytes(buf[:limit]), True
     return bytes(buf), False
 
-def decode_body(body: bytes, encoding: str | None) -> str:
+def decode_body(body: bytes, encoding: str | None, *, charset_declared: bool = True, truncated: bool = False) -> str:
+    # Ohne charset setzt requests bei text/* ISO-8859-1; die meisten Seiten sind aber UTF-8.
+    # Inkrementell dekodieren, damit ein beim Abschneiden halbiertes Zeichen kein Fehler ist.
+    if not charset_declared:
+        try:
+            return codecs.getincrementaldecoder("utf-8")().decode(body, final=not truncated)
+        except UnicodeDecodeError:
+            pass
     try:
         return body.decode(encoding or "utf-8", errors="replace")
     except LookupError:
@@ -164,7 +172,11 @@ async def post_request(data: RequestIn):
             for hop in res.history
         ]
         return RequestOut(
-            response=decode_body(fetched.body, res.encoding),
+            response=decode_body(
+                fetched.body, res.encoding,
+                charset_declared="charset=" in res.headers.get("Content-Type", "").lower(),
+                truncated=fetched.truncated,
+            ),
             status_code=res.status_code,
             duration_ms=fetched.duration_ms,
             truncated=fetched.truncated,
@@ -224,7 +236,7 @@ async def repeat_request(data: RepeatIn):
                 status_code=fetched.response.status_code,
                 duration_ms=fetched.duration_ms,
             ))
-        except requests.exceptions.RequestException as e:
+        except (requests.exceptions.RequestException, ValueError) as e:
             attempts.append(RepeatAttempt(
                 attempt=i,
                 duration_ms=elapsed_ms(start),
@@ -296,6 +308,14 @@ class ChainRequest(BaseModel):
     message: str | None = None
     chain: list[str] = []
     timeout: float = CHAIN_TIMEOUT_DEFAULT
+
+    @field_validator("timeout", mode="before")
+    @classmethod
+    def _coerce_timeout(cls, v: object) -> float:
+        try:
+            return float(v)  # type: ignore[arg-type]
+        except (TypeError, ValueError):
+            return CHAIN_TIMEOUT_DEFAULT
 
 class ChainResponse(BaseModel):
     message: str | None = None
