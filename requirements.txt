@@ -20,13 +20,13 @@ idna==3.20
     # via
     #   anyio
     #   requests
-opentelemetry-api==1.45.1
+opentelemetry-api==1.45.2
     # via fastapi
-pydantic==2.14.1
+pydantic==2.14.2
     # via
     #   fastapi
     #   httptester
-pydantic-core==2.50.1
+pydantic-core==2.50.2
     # via pydantic
 requests==2.34.2
     # via httptester
